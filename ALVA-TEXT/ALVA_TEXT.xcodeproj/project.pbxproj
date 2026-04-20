@@ -1,0 +1,242 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000010000000100000001 /* ALVA_TEXTApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10001010000000100000001 /* ALVA_TEXTApp.swift */; };
+		A10000020000000100000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10001020000000100000001 /* AppDelegate.swift */; };
+		A10000030000000100000001 /* AppCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10001030000000100000001 /* AppCoordinator.swift */; };
+		A10000040000000100000001 /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10001040000000100000001 /* AudioRecorder.swift */; };
+		A10000050000000100000001 /* OpenAIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10001050000000100000001 /* OpenAIService.swift */; };
+		A10000060000000100000001 /* PasteService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10001060000000100000001 /* PasteService.swift */; };
+		A10000070000000100000001 /* HotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10001070000000100000001 /* HotkeyManager.swift */; };
+		A10000080000000100000001 /* StatusMenuController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10001080000000100000001 /* StatusMenuController.swift */; };
+		A10000090000000100000001 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10001090000000100000001 /* SettingsView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A10000F00000000100000001 /* ALVA-TEXT.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "ALVA-TEXT.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10001010000000100000001 /* ALVA_TEXTApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ALVA_TEXTApp.swift; sourceTree = "<group>"; };
+		A10001020000000100000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		A10001030000000100000001 /* AppCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCoordinator.swift; sourceTree = "<group>"; };
+		A10001040000000100000001 /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
+		A10001050000000100000001 /* OpenAIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIService.swift; sourceTree = "<group>"; };
+		A10001060000000100000001 /* PasteService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteService.swift; sourceTree = "<group>"; };
+		A10001070000000100000001 /* HotkeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyManager.swift; sourceTree = "<group>"; };
+		A10001080000000100000001 /* StatusMenuController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusMenuController.swift; sourceTree = "<group>"; };
+		A10001090000000100000001 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A10001100000000100000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A10002000000000100000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A10003000000000100000001 = {
+			isa = PBXGroup;
+			children = (
+				A10003100000000100000001 /* ALVA_TEXT */,
+				A10003200000000100000001 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A10003100000000100000001 /* ALVA_TEXT */ = {
+			isa = PBXGroup;
+			children = (
+				A10001010000000100000001 /* ALVA_TEXTApp.swift */,
+				A10001020000000100000001 /* AppDelegate.swift */,
+				A10001030000000100000001 /* AppCoordinator.swift */,
+				A10001040000000100000001 /* AudioRecorder.swift */,
+				A10001050000000100000001 /* OpenAIService.swift */,
+				A10001060000000100000001 /* PasteService.swift */,
+				A10001070000000100000001 /* HotkeyManager.swift */,
+				A10001080000000100000001 /* StatusMenuController.swift */,
+				A10001090000000100000001 /* SettingsView.swift */,
+				A10001100000000100000001 /* Info.plist */,
+			);
+			path = ALVA_TEXT;
+			sourceTree = "<group>";
+		};
+		A10003200000000100000001 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A10000F00000000100000001 /* ALVA-TEXT.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A10004000000000100000001 /* ALVA-TEXT */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10007000000000100000001 /* Build configuration list for PBXNativeTarget "ALVA-TEXT" */;
+			buildPhases = (
+				A10005000000000100000001 /* Sources */,
+				A10002000000000100000001 /* Frameworks */,
+				A10006000000000100000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "ALVA-TEXT";
+			productName = "ALVA-TEXT";
+			productReference = A10000F00000000100000001 /* ALVA-TEXT.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A10008000000000100000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					A10004000000000100000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = A10009000000000100000001 /* Build configuration list for PBXProject "ALVA-TEXT" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A10003000000000100000001;
+			productRefGroup = A10003200000000100000001 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A10004000000000100000001 /* ALVA-TEXT */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A10006000000000100000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A10005000000000100000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000010000000100000001 /* ALVA_TEXTApp.swift in Sources */,
+				A10000020000000100000001 /* AppDelegate.swift in Sources */,
+				A10000030000000100000001 /* AppCoordinator.swift in Sources */,
+				A10000040000000100000001 /* AudioRecorder.swift in Sources */,
+				A10000050000000100000001 /* OpenAIService.swift in Sources */,
+				A10000060000000100000001 /* PasteService.swift in Sources */,
+				A10000070000000100000001 /* HotkeyManager.swift in Sources */,
+				A10000080000000100000001 /* StatusMenuController.swift in Sources */,
+				A10000090000000100000001 /* SettingsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A1000A000000000100000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ALVA_TEXT/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alva.text;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		A1000A100000000100000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ALVA_TEXT/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alva.text;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		A1000B000000000100000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		A1000B100000000100000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A10007000000000100000001 /* Build configuration list for PBXNativeTarget "ALVA-TEXT" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1000A000000000100000001 /* Debug */,
+				A1000A100000000100000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10009000000000100000001 /* Build configuration list for PBXProject "ALVA-TEXT" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1000B000000000100000001 /* Debug */,
+				A1000B100000000100000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A10008000000000100000001 /* Project object */;
+}
