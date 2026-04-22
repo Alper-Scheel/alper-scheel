@@ -12,6 +12,7 @@
 #   4. Erzeugt Versionsordner auf MS512 (~/storage/alva-text/builds/<TAG>/)
 #   5. Überträgt .app + .zip + manifest.json via rsync (resumefähig)
 #   6. Aktualisiert den `current/`-Symlink, der später die Download-URL bedient
+#   7. Legt optional einen GitHub Release (Tag + ZIP-Asset) an, wenn `gh` installiert
 
 set -euo pipefail
 
@@ -63,10 +64,10 @@ if [[ -z "$SRC_APP" || ! -d "$SRC_APP" ]]; then
   exit 1
 fi
 
-cyan "▶ [0/6] Verwende App: $SRC_APP"
+cyan "▶ [0/7] Verwende App: $SRC_APP"
 
 # ---- Schritt 1: Gatekeeper-Check (auf Original, das ist notary-gültig) ----
-cyan "▶ [1/6] Gatekeeper-Akzeptanz prüfen"
+cyan "▶ [1/7] Gatekeeper-Akzeptanz prüfen"
 spctl --assess --verbose=4 --type execute "$SRC_APP"
 
 # In ein sauberes /tmp-Verzeichnis spiegeln (ohne iCloud-xattrs).
@@ -86,7 +87,7 @@ codesign --verify --deep --strict --verbose=2 "$WORK_APP"
 green "  Signatur OK, Notarization OK, Gatekeeper OK."
 
 # ---- Schritt 2: ZIP via ditto (von der sauberen Kopie) ----
-cyan "▶ [2/6] Packe signierte ZIP via ditto"
+cyan "▶ [2/7] Packe signierte ZIP via ditto"
 ZIP_PATH="/tmp/ALVA-TEXT-${TAG}.zip"
 rm -f "$ZIP_PATH"
 ditto -c -k --sequesterRsrc --keepParent "$WORK_APP" "$ZIP_PATH"
@@ -94,7 +95,7 @@ ZIP_SIZE=$(ls -lh "$ZIP_PATH" | awk '{print $5}')
 green "  ZIP erstellt: $ZIP_PATH ($ZIP_SIZE)"
 
 # ---- Schritt 3: SSH-Konnektivität testen ----
-cyan "▶ [3/6] Teste SSH-Verbindung zu $REMOTE"
+cyan "▶ [3/7] Teste SSH-Verbindung zu $REMOTE"
 if ! ssh -o ConnectTimeout=10 -o BatchMode=yes "$REMOTE" true; then
   red "✗ SSH zu $REMOTE fehlgeschlagen. Prüfe Tailscale / SSH-Key."
   exit 1
@@ -102,11 +103,11 @@ fi
 green "  Verbindung steht."
 
 # ---- Schritt 4: Zielverzeichnis anlegen ----
-cyan "▶ [4/6] Erstelle Zielverzeichnis auf MS512"
+cyan "▶ [4/7] Erstelle Zielverzeichnis auf MS512"
 ssh "$REMOTE" "mkdir -p ${TARGET} ${BASE}/current ${BASE}/archive"
 
 # ---- Schritt 5: Transfer (rsync mit resume) ----
-cyan "▶ [5/6] Übertrage .app + .zip nach MS512"
+cyan "▶ [5/7] Übertrage .app + .zip nach MS512"
 # --partial --append-verify erlaubt Wiederaufnahme bei Broken-Pipe.
 # Wir übertragen die xattr-freie Kopie, nicht die iCloud-Original-App.
 rsync -avh --partial --progress \
@@ -134,13 +135,40 @@ EOF
 scp /tmp/alva-text-manifest.json "$REMOTE:${TARGET}/manifest.json"
 
 # ---- Schritt 6: current/-Symlink aktualisieren ----
-cyan "▶ [6/6] Aktualisiere 'current'-Symlink"
+cyan "▶ [6/7] Aktualisiere 'current'-Symlink"
 ssh "$REMOTE" "
   cd ${BASE}/current
   ln -sfn ../builds/${TAG}/ALVA-TEXT.zip ALVA-TEXT.zip
   ln -sfn ../builds/${TAG}/ALVA-TEXT.app ALVA-TEXT.app
   ln -sfn ../builds/${TAG}/manifest.json manifest.json
 "
+
+# ---- Schritt 7: GitHub Release (optional, wenn gh CLI vorhanden) ----
+if command -v gh &>/dev/null; then
+  cyan "▶ [7/7] GitHub Release anlegen"
+  REPO_DIR="${REPO_DIR:-$HOME/codex-work/alper-scheel}"
+  if [[ -d "$REPO_DIR/.git" ]]; then
+    (
+      cd "$REPO_DIR"
+      git tag -a "alva-text-${TAG}" -m "ALVA-TEXT ${VERSION} Build ${BUILD} (${DATE})" 2>/dev/null \
+        || yellow "  Tag alva-text-${TAG} existiert schon"
+      git push origin "alva-text-${TAG}" 2>/dev/null \
+        || yellow "  Tag-Push übersprungen (existiert oder kein Netz)"
+      if gh release create "alva-text-${TAG}" "$ZIP_PATH" \
+          --title "ALVA-TEXT ${VERSION} Build ${BUILD}" \
+          --notes "Release-Tag ${TAG}. Details: Brain/02_PROJEKTE/ALVA-TEXT/" \
+          --prerelease 2>/dev/null; then
+        green "  GitHub Release: https://github.com/Alper-Scheel/alper-scheel/releases/tag/alva-text-${TAG}"
+      else
+        yellow "  Release existiert schon oder gh-Auth fehlt"
+      fi
+    )
+  else
+    yellow "  Kein Git-Repo unter $REPO_DIR — GitHub-Release übersprungen"
+  fi
+else
+  yellow "▶ [7/7] Skip GitHub Release (gh CLI nicht installiert)"
+fi
 
 # ---- Bericht ----
 green ""
