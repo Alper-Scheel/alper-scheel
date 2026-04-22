@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleDevelopmentRegion</key>
-    <string>en</string>
+    <string>de</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -11,6 +11,8 @@
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
+    <string>ALVA-TEXT</string>
+    <key>CFBundleDisplayName</key>
     <string>ALVA-TEXT</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
@@ -22,7 +24,15 @@
     <string>15.0</string>
     <key>LSUIElement</key>
     <true/>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.productivity</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>© 2026 Alper Scheel. Alle Rechte vorbehalten.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>ALVA-TEXT benötigt Mikrofonzugriff für Sprachtranskription.</string>
+    <string>ALVA-TEXT nimmt dein Diktat auf, während du einen Hotkey gedrückt hältst, und wandelt es per Whisper-API in Text um. Kein Dauermithören, nur während aktiver Aufnahme.</string>
+    <key>NSAccessibilityUsageDescription</key>
+    <string>ALVA-TEXT fügt den transkribierten Text automatisch in die fokussierte App ein — dafür simuliert es einen ⌘V-Tastendruck. Diese Berechtigung ist nur für das automatische Einfügen nötig.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>ALVA-TEXT aktiviert die zuvor fokussierte App kurz bevor es den transkribierten Text einfügt, damit ⌘V am richtigen Ort ankommt.</string>
 </dict>
 </plist>

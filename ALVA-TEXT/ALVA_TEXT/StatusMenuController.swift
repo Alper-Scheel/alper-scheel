@@ -10,10 +10,14 @@ import Combine
 ///   - error                   → plain text "⚠ Fehler" (per user preference)
 ///   - needsAccessibility      → plain text "⚠ Bedienungshilfen fehlen"
 @MainActor
-final class StatusMenuController {
+final class StatusMenuController: NSObject {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private let coordinator: AppCoordinator
     private var cancellables = Set<AnyCancellable>()
+    private let menu = NSMenu()
+    /// Tag marker for the dynamic "language F-key quick-reference" section.
+    /// Items carrying this tag get rebuilt every time the menu opens.
+    private let languageSectionTag = 0xF00D
 
     private var animationTimer: Timer?
     private var currentFrame: Int = 0
@@ -26,6 +30,7 @@ final class StatusMenuController {
 
     init(coordinator: AppCoordinator) {
         self.coordinator = coordinator
+        super.init()
         buildMenu()
         applyIdleIcon()
         bindStatus()
@@ -122,8 +127,6 @@ final class StatusMenuController {
     // MARK: - Menu
 
     private func buildMenu() {
-        let menu = NSMenu()
-
         let openSettings = NSMenuItem(title: "Einstellungen …", action: #selector(showSettings), keyEquivalent: ",")
         openSettings.target = self
         menu.addItem(openSettings)
@@ -144,7 +147,62 @@ final class StatusMenuController {
         quit.target = self
         menu.addItem(quit)
 
+        // The dynamic language-binding quick-reference (Fn+F1 → Englisch, …)
+        // is appended every time the menu opens, via NSMenuDelegate.
+        menu.delegate = self
         statusItem.menu = menu
+    }
+
+    /// Removes every menu entry that was tagged as part of the language
+    /// quick-reference section (including its leading header + separator).
+    private func clearLanguageSection() {
+        for item in menu.items where item.tag == languageSectionTag {
+            menu.removeItem(item)
+        }
+    }
+
+    /// Appends the current language-binding quick-reference to the bottom
+    /// of the menu. Called on `menuWillOpen` so the list always reflects the
+    /// latest user configuration without needing a Combine subscription.
+    private func rebuildLanguageSection() {
+        clearLanguageSection()
+
+        let bindings = coordinator.languageBindings.sorted { $0.fKey < $1.fKey }
+        guard !bindings.isEmpty else { return }
+
+        let separator = NSMenuItem.separator()
+        separator.tag = languageSectionTag
+        menu.addItem(separator)
+
+        let header = NSMenuItem(title: "Während der Aufnahme", action: nil, keyEquivalent: "")
+        header.isEnabled = false
+        header.tag = languageSectionTag
+        header.attributedTitle = NSAttributedString(
+            string: "Während der Aufnahme",
+            attributes: [
+                .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold),
+                .foregroundColor: NSColor.secondaryLabelColor
+            ]
+        )
+        menu.addItem(header)
+
+        for binding in bindings {
+            let title = "Fn+F\(binding.fKey)  →  \(binding.displayName)"
+            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            item.tag = languageSectionTag
+            item.attributedTitle = NSAttributedString(
+                string: title,
+                attributes: [
+                    .font: NSFont.monospacedDigitSystemFont(
+                        ofSize: NSFont.systemFontSize(for: .small),
+                        weight: .regular
+                    ),
+                    .foregroundColor: NSColor.labelColor
+                ]
+            )
+            menu.addItem(item)
+        }
     }
 
     @objc private func showSettings() {
@@ -156,10 +214,19 @@ final class StatusMenuController {
     }
 
     @objc private func showOnboarding() {
+        print("ALVA: menu -> showOnboarding click received")
         coordinator.showOnboardingWindow()
     }
 
     @objc private func quitApp() {
         NSApp.terminate(nil)
+    }
+}
+
+// MARK: - NSMenuDelegate
+
+extension StatusMenuController: NSMenuDelegate {
+    func menuWillOpen(_ menu: NSMenu) {
+        rebuildLanguageSection()
     }
 }

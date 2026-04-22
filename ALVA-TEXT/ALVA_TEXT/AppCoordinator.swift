@@ -28,6 +28,38 @@ enum HotkeyMode: String {
         case .message:  return "Nachricht"
         }
     }
+
+    /// True if the mode needs an OpenAI call (rewrite or translate).
+    /// If no API key is set, falling back to plain transcript.
+    var requiresCloud: Bool {
+        switch self {
+        case .standard: return false
+        case .polite, .message: return true
+        }
+    }
+}
+
+/// Which backend performs the speech-to-text step.
+enum TranscriptionBackend: String, CaseIterable {
+    case local  // on-device WhisperKit (default, no API key needed)
+    case cloud  // OpenAI Whisper (better quality, costs API credits)
+    case auto   // cloud if API key + internet, else local fallback
+
+    var germanLabel: String {
+        switch self {
+        case .local: return "Lokal (ohne Internet)"
+        case .cloud: return "Cloud (OpenAI)"
+        case .auto:  return "Automatisch (Cloud wenn möglich)"
+        }
+    }
+
+    var germanDescription: String {
+        switch self {
+        case .local: return "Whisper-Small läuft direkt auf deinem Mac. Kein Internet, kein API-Schlüssel, kein Datenaustausch. Etwas geringere Qualität als Cloud-Whisper, aber für deutsche Diktate sehr solide."
+        case .cloud: return "OpenAI-Whisper via Cloud. Beste Qualität, sehr schnell. Benötigt gültigen API-Schlüssel und Internet. Audio-Dateien werden an OpenAI gesendet."
+        case .auto:  return "Automatisch Cloud wenn Schlüssel + Internet verfügbar sind, sonst lokal. Empfohlen, wenn du beides möchtest."
+        }
+    }
 }
 
 /// One entry in the transcript history. Stored as JSON in UserDefaults.
@@ -42,9 +74,68 @@ struct TranscriptEntry: Codable, Identifiable, Equatable {
     var mode: HotkeyMode? { HotkeyMode(rawValue: modeRawValue) }
 }
 
+/// One billable OpenAI-API call. Stored as JSON in UserDefaults so we can
+/// show the user a running tally of cloud-API spending.
+struct CostEntry: Codable, Identifiable, Equatable {
+    var id: UUID = UUID()
+    let date: Date
+    let kind: Kind
+    let model: String
+    let audioSeconds: Double?      // set for transcription
+    let promptTokens: Int?         // set for chat completions
+    let completionTokens: Int?     // set for chat completions
+    let costUSD: Double
+
+    enum Kind: String, Codable {
+        case transcribe
+        case rewrite
+        case translate
+    }
+}
+
+/// Central price list so we can compute `costUSD` deterministically. Values
+/// are USD per unit (per minute for audio, per 1M tokens for chat).
+/// Updated 2026-04-22 from OpenAI's public pricing page.
+enum OpenAIPricing {
+    static func transcriptionCost(audioSeconds: Double, model: String) -> Double {
+        // $0.006/min for whisper-1 + gpt-4o-mini-transcribe (as of 2026-04).
+        let perMinute: Double
+        switch model {
+        case "gpt-4o-mini-transcribe", "whisper-1": perMinute = 0.006
+        case "gpt-4o-transcribe":                   perMinute = 0.012
+        default:                                    perMinute = 0.006
+        }
+        return audioSeconds / 60.0 * perMinute
+    }
+
+    static func chatCost(model: String, promptTokens: Int, completionTokens: Int) -> Double {
+        let inputPerMillion: Double
+        let outputPerMillion: Double
+        switch model {
+        case "gpt-4o-mini":
+            inputPerMillion  = 0.15
+            outputPerMillion = 0.60
+        case "gpt-4o":
+            inputPerMillion  = 2.50
+            outputPerMillion = 10.00
+        default:
+            inputPerMillion  = 0.15
+            outputPerMillion = 0.60
+        }
+        return Double(promptTokens) / 1_000_000.0 * inputPerMillion
+             + Double(completionTokens) / 1_000_000.0 * outputPerMillion
+    }
+}
+
 @MainActor
 final class AppCoordinator: ObservableObject {
     @Published var status: AppStatus = .idle
+    /// Live-updated mirror of `AXIsProcessTrusted()`. Refreshed every 2s by
+    /// a background timer so the Settings UI reflects reality without the
+    /// user having to click a "re-check" button.
+    @Published var accessibilityTrusted: Bool = AXIsProcessTrusted()
+    /// Live-updated mirror of Input-Monitoring permission.
+    @Published var inputMonitoringTrusted: Bool = false
     @Published var lastTranscript: String = UserDefaults.standard.string(forKey: "lastTranscript") ?? ""
     @Published var lastRewrittenText: String = UserDefaults.standard.string(forKey: "lastRewritten") ?? ""
     @Published var apiKey: String = AppCoordinator.loadInitialAPIKey() {
@@ -262,6 +353,65 @@ final class AppCoordinator: ObservableObject {
         lastErrorDate = nil
     }
 
+    // MARK: - Cost tracking (OpenAI API spend)
+
+    @Published var costEntries: [CostEntry] = AppCoordinator.loadCostEntries() {
+        didSet { AppCoordinator.saveCostEntries(costEntries) }
+    }
+
+    static let maxCostEntries = 500
+
+    private static func loadCostEntries() -> [CostEntry] {
+        guard let data = UserDefaults.standard.data(forKey: "costEntries"),
+              let decoded = try? JSONDecoder().decode([CostEntry].self, from: data) else {
+            return []
+        }
+        return decoded
+    }
+
+    private static func saveCostEntries(_ entries: [CostEntry]) {
+        if let data = try? JSONEncoder().encode(entries) {
+            UserDefaults.standard.set(data, forKey: "costEntries")
+        }
+    }
+
+    func appendCostEntry(_ entry: CostEntry) {
+        var updated = costEntries
+        updated.insert(entry, at: 0)
+        if updated.count > AppCoordinator.maxCostEntries {
+            updated = Array(updated.prefix(AppCoordinator.maxCostEntries))
+        }
+        costEntries = updated
+    }
+
+    func clearCostEntries() {
+        costEntries = []
+    }
+
+    /// Sum of all costs recorded today (midnight to midnight, local time).
+    var costToday: Double {
+        let cal = Calendar.current
+        let startOfDay = cal.startOfDay(for: Date())
+        return costEntries
+            .filter { $0.date >= startOfDay }
+            .reduce(0) { $0 + $1.costUSD }
+    }
+
+    /// Sum of all costs from the first day of the current month.
+    var costThisMonth: Double {
+        let cal = Calendar.current
+        let components = cal.dateComponents([.year, .month], from: Date())
+        guard let startOfMonth = cal.date(from: components) else { return 0 }
+        return costEntries
+            .filter { $0.date >= startOfMonth }
+            .reduce(0) { $0 + $1.costUSD }
+    }
+
+    /// Sum of all costs ever recorded (up to `maxCostEntries` retention).
+    var costAllTime: Double {
+        costEntries.reduce(0) { $0 + $1.costUSD }
+    }
+
     private static func loadHotkey(key: String, fallback: HotkeyConfig) -> HotkeyConfig {
         guard let data = UserDefaults.standard.data(forKey: key),
               let decoded = try? JSONDecoder().decode(HotkeyConfig.self, from: data) else {
@@ -288,7 +438,20 @@ final class AppCoordinator: ObservableObject {
     private let recorder = AudioRecorder()
     private lazy var hotkeys = HotkeyManager(delegate: self, configProvider: self)
     private let openAI = OpenAIService()
+    let localWhisper = LocalWhisperTranscriber()
     private let pasteService = PasteService()
+
+    /// User's chosen transcription backend. Default is local so the app
+    /// works out of the box without an API key.
+    @Published var transcriptionBackend: TranscriptionBackend = {
+        if let raw = UserDefaults.standard.string(forKey: "transcriptionBackend"),
+           let parsed = TranscriptionBackend(rawValue: raw) {
+            return parsed
+        }
+        return .local
+    }() {
+        didSet { UserDefaults.standard.set(transcriptionBackend.rawValue, forKey: "transcriptionBackend") }
+    }
 
     private var recordingMode: HotkeyMode?
     private var recordingStartedAt: Date?
@@ -305,9 +468,51 @@ final class AppCoordinator: ObservableObject {
     private var reverseTranslateWindowController: NSWindowController?
     private var historyWindowController: NSWindowController?
     private var onboardingWindowController: NSWindowController?
+    /// Polls the TCC permission state so the UI can update without user
+    /// interaction. 2-second interval is a good balance between snappiness
+    /// (user sees green right after granting) and CPU/I-O load.
+    private var permissionPollTimer: Timer?
 
     func start() {
         hotkeys.start()
+        refreshPermissionStates()
+        startPermissionPolling()
+    }
+
+    private func startPermissionPolling() {
+        permissionPollTimer?.invalidate()
+        let timer = Timer(timeInterval: 2.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.refreshPermissionStates()
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        permissionPollTimer = timer
+    }
+
+    private func refreshPermissionStates() {
+        let ax = AXIsProcessTrusted()
+        if ax != accessibilityTrusted {
+            let justGrantedAX = !accessibilityTrusted && ax
+            accessibilityTrusted = ax
+            if justGrantedAX {
+                // User just flipped the switch in System Settings →
+                // install the CGEventTap now so F-key sprach-override
+                // and ⌃⌥Return reverse-translate start working without
+                // requiring a full app restart.
+                hotkeys.reinstallEventTapIfNeeded()
+                print("ALVA: Accessibility granted at runtime, reinstalled CGEventTap")
+            }
+        }
+        let im = pasteService.hasInputMonitoringPermission
+        if im != inputMonitoringTrusted {
+            let justGrantedIM = !inputMonitoringTrusted && im
+            inputMonitoringTrusted = im
+            if justGrantedIM {
+                hotkeys.reinstallEventTapIfNeeded()
+                print("ALVA: Input-Monitoring granted at runtime, reinstalled CGEventTap")
+            }
+        }
     }
 
     func requestPermissions() {
@@ -346,14 +551,48 @@ final class AppCoordinator: ObservableObject {
             window.title = "ALVA-TEXT Settings"
             window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
             window.setContentSize(NSSize(width: 620, height: 560))
-            window.center()
-
+            window.isReleasedWhenClosed = false
+            // Stay on top like the Onboarding window so it doesn't get
+            // lost among the user's many other windows.
+            window.level = .floating
+            window.collectionBehavior = [.moveToActiveSpace]
+            window.hidesOnDeactivate = false
+            // Auto-reset activation policy when the user closes Settings.
+            NotificationCenter.default.addObserver(
+                forName: NSWindow.willCloseNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.handleAuxWindowClosed()
+                }
+            }
             settingsWindowController = NSWindowController(window: window)
         }
 
+        // Temporarily switch to .regular so the window can reliably become
+        // key in an accessory app. finishOnboarding / handleAuxWindowClosed
+        // flip it back to .accessory.
+        NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        settingsWindowController?.window?.center()
         settingsWindowController?.showWindow(nil)
         settingsWindowController?.window?.makeKeyAndOrderFront(nil)
+        settingsWindowController?.window?.orderFrontRegardless()
+    }
+
+    /// Called when Settings (or any aux window) closes. Drops Dock icon
+    /// again unless another aux window is still open.
+    private func handleAuxWindowClosed() {
+        let anyOpen = [
+            settingsWindowController?.window?.isVisible,
+            onboardingWindowController?.window?.isVisible,
+            historyWindowController?.window?.isVisible,
+            reverseTranslateWindowController?.window?.isVisible
+        ].contains(where: { $0 == true })
+        if !anyOpen {
+            NSApp.setActivationPolicy(.accessory)
+        }
     }
 
     func beginRecording(mode: HotkeyMode) {
@@ -424,12 +663,28 @@ final class AppCoordinator: ObservableObject {
                 let audioURL = try recorder.stopRecording()
                 defer { try? FileManager.default.removeItem(at: audioURL) }
 
-                let transcript = try await openAI.transcribe(
-                    audioURL: audioURL,
-                    apiKey: apiKey,
-                    model: "gpt-4o-mini-transcribe",
-                    language: "de"
-                )
+                // Shortcut: if the user wants English AND we'd be running
+                // locally anyway, Whisper can translate directly inside the
+                // transcription pass — no cloud call, no API key needed.
+                let canUseLocalEnglishTranslate =
+                    targetLanguage == "en"
+                    && (transcriptionBackend == .local
+                        || (transcriptionBackend == .auto && apiKey.isEmpty))
+                    && localWhisper.isAvailable
+
+                let transcript: String
+                var localTranslateApplied = false
+                if canUseLocalEnglishTranslate {
+                    status = .translating
+                    transcript = try await localWhisper.transcribe(
+                        audioURL: audioURL,
+                        language: "de",
+                        translateToEnglish: true
+                    )
+                    localTranslateApplied = true
+                } else {
+                    transcript = try await runTranscription(audioURL: audioURL)
+                }
                 lastTranscript = transcript
                 UserDefaults.standard.set(transcript, forKey: "lastTranscript")
 
@@ -445,29 +700,52 @@ final class AppCoordinator: ObservableObject {
                 }
 
                 var finalText = transcript
-                switch mode {
-                case .polite where rewriteEnabled:
-                    status = .rewriting
-                    finalText = try await openAI.rewriteToPoliteGerman(text: transcript, apiKey: apiKey)
-                    lastRewrittenText = finalText
-                    UserDefaults.standard.set(finalText, forKey: "lastRewritten")
-                case .message:
-                    status = .rewriting
-                    finalText = try await openAI.rewriteAsAdaptiveMessage(text: transcript, apiKey: apiKey)
-                    lastRewrittenText = finalText
-                    UserDefaults.standard.set(finalText, forKey: "lastRewritten")
-                default:
-                    break
-                }
 
-                // If the user tapped an F-key for a language binding during
-                // recording, translate the final output into that language.
-                // The German version is DISCARDED (per Alper's preference).
-                if let iso = targetLanguage {
-                    status = .translating
-                    finalText = try await openAI.translateText(to: iso, text: finalText, apiKey: apiKey)
+                // If Whisper already translated to English, we skip the
+                // cloud-based translate step. Rewrite (polite/message) on
+                // an English string wouldn't give sensible German output,
+                // so we also skip those.
+                if localTranslateApplied {
                     lastRewrittenText = finalText
                     UserDefaults.standard.set(finalText, forKey: "lastRewritten")
+                } else {
+                    // Rewrite / translate need a cloud call. Without an API
+                    // key we quietly fall back to the plain transcript and
+                    // flag the shortcoming so the user knows why Höflich /
+                    // Nachricht didn't transform this round.
+                    let needsCloud = (mode?.requiresCloud ?? false) || targetLanguage != nil
+                    if needsCloud && apiKey.isEmpty {
+                        recordError("Für Höflich, Nachricht und Sprach-Übersetzung (außer Englisch im Lokalbetrieb) wird ein OpenAI-Schlüssel benötigt. Ergebnis bleibt das reine Transkript.")
+                    } else {
+                        switch mode {
+                        case .polite where rewriteEnabled:
+                            status = .rewriting
+                            let result = try await openAI.rewriteToPoliteGerman(text: transcript, apiKey: apiKey)
+                            finalText = result.text
+                            lastRewrittenText = finalText
+                            UserDefaults.standard.set(finalText, forKey: "lastRewritten")
+                            trackChatUsage(result.usage, kind: .rewrite)
+                        case .message:
+                            status = .rewriting
+                            let result = try await openAI.rewriteAsAdaptiveMessage(text: transcript, apiKey: apiKey)
+                            finalText = result.text
+                            lastRewrittenText = finalText
+                            UserDefaults.standard.set(finalText, forKey: "lastRewritten")
+                            trackChatUsage(result.usage, kind: .rewrite)
+                        default:
+                            break
+                        }
+
+                        // Sprach-Override via F-Taste während Aufnahme.
+                        if let iso = targetLanguage {
+                            status = .translating
+                            let result = try await openAI.translateText(to: iso, text: finalText, apiKey: apiKey)
+                            finalText = result.text
+                            lastRewrittenText = finalText
+                            UserDefaults.standard.set(finalText, forKey: "lastRewritten")
+                            trackChatUsage(result.usage, kind: .translate)
+                        }
+                    }
                 }
 
                 NSPasteboard.general.clearContents()
@@ -513,6 +791,84 @@ final class AppCoordinator: ObservableObject {
                 status = .idle
             }
         }
+    }
+
+    /// Picks the right transcription backend for this recording and runs it.
+    ///  * `.cloud` → OpenAI-Whisper (needs API key + internet)
+    ///  * `.local` → WhisperKit on-device (no API key needed)
+    ///  * `.auto`  → cloud if possible, else local fallback
+    private func runTranscription(audioURL: URL) async throws -> String {
+        switch transcriptionBackend {
+        case .cloud:
+            return try await runCloudTranscription(audioURL: audioURL)
+        case .local:
+            return try await runLocalTranscription(audioURL: audioURL)
+        case .auto:
+            if !apiKey.isEmpty {
+                do {
+                    return try await runCloudTranscription(audioURL: audioURL)
+                } catch {
+                    // Network / API down → fall back to local
+                    print("ALVA auto-mode: cloud failed, falling back to local:", error.localizedDescription)
+                    return try await runLocalTranscription(audioURL: audioURL)
+                }
+            } else {
+                return try await runLocalTranscription(audioURL: audioURL)
+            }
+        }
+    }
+
+    private func runCloudTranscription(audioURL: URL) async throws -> String {
+        let model = "gpt-4o-mini-transcribe"
+        let result = try await openAI.transcribe(
+            audioURL: audioURL,
+            apiKey: apiKey,
+            model: model,
+            language: "de"
+        )
+        // Track transcription cost based on audio duration
+        let seconds = recorder.lastDuration
+        if seconds > 0 {
+            let cost = OpenAIPricing.transcriptionCost(audioSeconds: seconds, model: model)
+            appendCostEntry(CostEntry(
+                date: Date(),
+                kind: .transcribe,
+                model: model,
+                audioSeconds: seconds,
+                promptTokens: nil,
+                completionTokens: nil,
+                costUSD: cost
+            ))
+        }
+        return result
+    }
+
+    /// Logs a cost entry for a chat-completion call. Does nothing if usage
+    /// is missing (shouldn't happen on successful OpenAI responses).
+    private func trackChatUsage(_ usage: OpenAIUsage?, kind: CostEntry.Kind) {
+        guard let usage else { return }
+        let model = "gpt-4o-mini"
+        let cost = OpenAIPricing.chatCost(
+            model: model,
+            promptTokens: usage.promptTokens,
+            completionTokens: usage.completionTokens
+        )
+        appendCostEntry(CostEntry(
+            date: Date(),
+            kind: kind,
+            model: model,
+            audioSeconds: nil,
+            promptTokens: usage.promptTokens,
+            completionTokens: usage.completionTokens,
+            costUSD: cost
+        ))
+    }
+
+    private func runLocalTranscription(audioURL: URL) async throws -> String {
+        guard localWhisper.isAvailable else {
+            throw LocalWhisperTranscriber.unavailableError
+        }
+        return try await localWhisper.transcribe(audioURL: audioURL, language: "de")
     }
 
     /// Translates raw NSError/URLError into a readable German sentence.
@@ -592,11 +948,25 @@ final class AppCoordinator: ObservableObject {
             window.setContentSize(NSSize(width: 640, height: 520))
             window.center()
             window.isReleasedWhenClosed = false
+            window.level = .floating
+            window.collectionBehavior = [.moveToActiveSpace]
+            window.hidesOnDeactivate = false
+            NotificationCenter.default.addObserver(
+                forName: NSWindow.willCloseNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.handleAuxWindowClosed()
+                }
+            }
             historyWindowController = NSWindowController(window: window)
         }
+        NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         historyWindowController?.showWindow(nil)
         historyWindowController?.window?.makeKeyAndOrderFront(nil)
+        historyWindowController?.window?.orderFrontRegardless()
     }
 
     // MARK: - Onboarding
@@ -611,6 +981,7 @@ final class AppCoordinator: ObservableObject {
     }
 
     func showOnboardingWindow() {
+        print("ALVA: showOnboardingWindow called")
         if onboardingWindowController == nil {
             let view = OnboardingView(onFinish: { [weak self] in
                 self?.finishOnboarding()
@@ -620,19 +991,32 @@ final class AppCoordinator: ObservableObject {
             window.title = "ALVA-TEXT — Einrichtung"
             window.styleMask = [.titled, .closable]
             window.setContentSize(NSSize(width: 620, height: 500))
-            window.center()
             window.isReleasedWhenClosed = false
+            // Staying on top for accessory apps: use floating level so the
+            // window can't get hidden by whichever app was frontmost.
+            window.level = .floating
+            window.collectionBehavior = [.moveToActiveSpace]
+            window.hidesOnDeactivate = false
             onboardingWindowController = NSWindowController(window: window)
         }
+        // Accessory apps need explicit activation-policy bump for a real
+        // window to become key. We flip to .regular for the duration of
+        // onboarding, then back to .accessory in finishOnboarding().
+        NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        onboardingWindowController?.window?.center()
         onboardingWindowController?.showWindow(nil)
         onboardingWindowController?.window?.makeKeyAndOrderFront(nil)
+        onboardingWindowController?.window?.orderFrontRegardless()
+        print("ALVA: onboarding window ordered front, visible=\(onboardingWindowController?.window?.isVisible ?? false)")
     }
 
     func finishOnboarding() {
         UserDefaults.standard.set(true, forKey: "hasSeenOnboarding")
         onboardingWindowController?.close()
         onboardingWindowController = nil
+        // Back to menu-bar-only mode.
+        NSApp.setActivationPolicy(.accessory)
     }
 
     func resetOnboarding() {
@@ -683,11 +1067,23 @@ extension AppCoordinator {
     /// translates to German, shows the popup. Blocks re-entry while running
     /// and respects active recordings.
     func startReverseTranslate() {
-        // Ignore during any other activity.
-        guard !isReverseTranslating, !isProcessing else { return }
-        guard status == .idle || status == .pasted || status == .copied else { return }
+        print("ALVA reverseTranslate: triggered (isProcessing=\(isProcessing) isReverse=\(isReverseTranslating) status=\(status.rawValue))")
+        // Ignore during any other activity. We intentionally do NOT gate
+        // on `status` here — the user might press the hotkey right after
+        // a recording finished, when status is briefly .pasted / .copied /
+        // .needsAccessibility, and we don't want to swallow that.
+        guard !isReverseTranslating, !isProcessing else {
+            print("ALVA reverseTranslate: busy, ignoring")
+            return
+        }
         guard !apiKey.isEmpty else {
             print("ALVA reverseTranslate: no API key set")
+            recordError("Rückwärtsübersetzung benötigt einen OpenAI-Schlüssel. Im Einstellungen-Tab „Allgemein\" hinterlegen.")
+            status = .needsAccessibility  // reuse as "cannot" marker
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                status = .idle
+            }
             return
         }
 
@@ -706,31 +1102,58 @@ extension AppCoordinator {
 
             // 2. Simulate ⌘C on the frontmost app.
             let ok = pasteService.simulateCommandC()
+            print("ALVA reverseTranslate: simulateCommandC returned \(ok)")
             guard ok else {
                 print("ALVA reverseTranslate: no Accessibility permission")
+                recordError("⌘C konnte nicht simuliert werden — Bedienungshilfen-Freigabe fehlt.")
                 status = .needsAccessibility
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
                 return
             }
 
             // 3. Wait briefly for the copy to take effect, then read clipboard.
-            try? await Task.sleep(nanoseconds: 200_000_000)
-            guard NSPasteboard.general.changeCount != previousChangeCount,
-                  let selection = NSPasteboard.general.string(forType: .string),
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            let newChangeCount = NSPasteboard.general.changeCount
+            let selectionRaw = NSPasteboard.general.string(forType: .string)
+            print("ALVA reverseTranslate: clipboard changed=\(newChangeCount != previousChangeCount) content=\(selectionRaw?.prefix(40) ?? "nil")")
+            guard newChangeCount != previousChangeCount,
+                  let selection = selectionRaw,
                   !selection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 print("ALVA reverseTranslate: nothing selected or clipboard unchanged")
+                recordError("Keine Textauswahl erkannt. Markiere Text in der App, bevor du das Tastenkürzel drückst.")
                 // Restore previous clipboard content.
                 if let prev = previousClipboard {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(prev, forType: .string)
                 }
+                status = .needsAccessibility
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                status = .idle
                 return
             }
 
             // 4. Translate into German.
             let germanText: String
             do {
-                germanText = try await openAI.translateText(to: "de", text: selection, apiKey: apiKey)
+                let result = try await openAI.translateText(to: "de", text: selection, apiKey: apiKey)
+                germanText = result.text
+                // Track cost
+                if let usage = result.usage {
+                    let cost = OpenAIPricing.chatCost(
+                        model: "gpt-4o-mini",
+                        promptTokens: usage.promptTokens,
+                        completionTokens: usage.completionTokens
+                    )
+                    appendCostEntry(CostEntry(
+                        date: Date(),
+                        kind: .translate,
+                        model: "gpt-4o-mini",
+                        audioSeconds: nil,
+                        promptTokens: usage.promptTokens,
+                        completionTokens: usage.completionTokens,
+                        costUSD: cost
+                    ))
+                }
             } catch {
                 print("ALVA reverseTranslate: translation failed:", error.localizedDescription)
                 if let prev = previousClipboard {
@@ -755,6 +1178,7 @@ extension AppCoordinator {
     }
 
     private func showReverseTranslatePopup(originalChunks: [LanguageChunk], translated: String) {
+        print("ALVA reverseTranslate: showing popup with \(originalChunks.count) chunks, \(translated.count) chars translated")
         let view = ReverseTranslatePopup(
             originalChunks: originalChunks,
             translated: translated,
@@ -767,9 +1191,8 @@ extension AppCoordinator {
         host.sizingOptions = [.preferredContentSize]
 
         let window = NSWindow(contentViewController: host)
-        // Title bar is suppressed: transparent + title hidden + traffic
-        // lights hidden. Still a .titled window so it can become key and
-        // accept keyboard shortcuts like Escape.
+        // Title bar is suppressed but the style mask still includes .titled
+        // so the window can become key and respond to Escape.
         window.styleMask = [.titled, .resizable, .fullSizeContentView]
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
@@ -780,12 +1203,29 @@ extension AppCoordinator {
         window.setContentSize(NSSize(width: 560, height: 440))
         window.center()
         window.level = .floating
+        window.collectionBehavior = [.moveToActiveSpace]
+        window.hidesOnDeactivate = false
         window.isReleasedWhenClosed = false
+        // Auto-reset activation policy when popup closes.
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.handleAuxWindowClosed()
+            }
+        }
 
         reverseTranslateWindowController = NSWindowController(window: window)
+        // Accessory apps can't make a window key reliably — flip to .regular
+        // for the popup's lifetime, same trick as onboarding/settings.
+        NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         reverseTranslateWindowController?.showWindow(nil)
         reverseTranslateWindowController?.window?.makeKeyAndOrderFront(nil)
+        reverseTranslateWindowController?.window?.orderFrontRegardless()
+        print("ALVA reverseTranslate: popup visible=\(reverseTranslateWindowController?.window?.isVisible ?? false)")
     }
 }
 

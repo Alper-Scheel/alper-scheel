@@ -4,6 +4,24 @@ struct TranscriptionResponse: Decodable {
     let text: String
 }
 
+/// Chat/GPT usage metadata (always present on 200-OK responses).
+struct OpenAIUsage: Decodable, Equatable {
+    let promptTokens: Int
+    let completionTokens: Int
+
+    enum CodingKeys: String, CodingKey {
+        case promptTokens = "prompt_tokens"
+        case completionTokens = "completion_tokens"
+    }
+}
+
+/// Rich return-value from chat-completion calls that also surfaces usage
+/// so we can track costs in the app.
+struct OpenAIChatResult {
+    let text: String
+    let usage: OpenAIUsage?
+}
+
 private struct ChatCompletionsRequest: Encodable {
     struct Message: Encodable {
         let role: String
@@ -25,6 +43,7 @@ private struct ChatCompletionsResponse: Decodable {
     }
 
     let choices: [Choice]
+    let usage: OpenAIUsage?
 }
 
 final class OpenAIService {
@@ -56,7 +75,7 @@ final class OpenAIService {
         return decoded.text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    func rewriteToPoliteGerman(text: String, apiKey: String) async throws -> String {
+    func rewriteToPoliteGerman(text: String, apiKey: String) async throws -> OpenAIChatResult {
         try await chatCompletion(
             apiKey: apiKey,
             systemPrompt: "Du bist ein deutscher Schreibassistent.",
@@ -69,7 +88,7 @@ final class OpenAIService {
     /// e-mails. Mirrors the tone of the dictation (Du/Sie, formell/locker),
     /// trims filler, never sounds AI-generated. Output language is ALWAYS
     /// the same as the input language — never translate.
-    func rewriteAsAdaptiveMessage(text: String, apiKey: String) async throws -> String {
+    func rewriteAsAdaptiveMessage(text: String, apiKey: String) async throws -> OpenAIChatResult {
         let systemPrompt = """
         Du bist Alpers persönlicher deutscher Schreibassistent für Chats, WhatsApp, \
         Signal, kurze E-Mails und Social-Media-Posts.
@@ -122,14 +141,14 @@ final class OpenAIService {
 
     /// Translates German (or any) input into natural, neutral English.
     /// Kept for backward compatibility; prefer `translateText(to:text:apiKey:)`.
-    func translateToEnglish(text: String, apiKey: String) async throws -> String {
+    func translateToEnglish(text: String, apiKey: String) async throws -> OpenAIChatResult {
         try await translateText(to: "en", text: text, apiKey: apiKey)
     }
 
     /// Translates `text` into the language identified by `isoCode` (e.g.
     /// `"en"`, `"fr"`, `"it"`). Preserves meaning, tone and paragraph breaks,
     /// outputs only the translation.
-    func translateText(to isoCode: String, text: String, apiKey: String) async throws -> String {
+    func translateText(to isoCode: String, text: String, apiKey: String) async throws -> OpenAIChatResult {
         let languageName = LanguageCatalog.englishName(for: isoCode)
         let systemPrompt = """
         You are a precise translator. Output ONLY the translation — no \
@@ -156,7 +175,7 @@ final class OpenAIService {
         systemPrompt: String,
         userPrompt: String,
         fallback: String
-    ) async throws -> String {
+    ) async throws -> OpenAIChatResult {
         guard !apiKey.isEmpty else {
             throw NSError(domain: "ALVA_TEXT", code: 401, userInfo: [NSLocalizedDescriptionKey: "Missing API key"])
         }
@@ -179,7 +198,8 @@ final class OpenAIService {
         let (responseData, response) = try await URLSession.shared.data(for: request)
         try validate(response: response, data: responseData)
         let decoded = try JSONDecoder().decode(ChatCompletionsResponse.self, from: responseData)
-        return decoded.choices.first?.message.content.trimmingCharacters(in: .whitespacesAndNewlines) ?? fallback
+        let text = decoded.choices.first?.message.content.trimmingCharacters(in: .whitespacesAndNewlines) ?? fallback
+        return OpenAIChatResult(text: text, usage: decoded.usage)
     }
 
     private func createMultipartBody(boundary: String, fileData: Data, fileName: String, model: String, language: String) -> Data {

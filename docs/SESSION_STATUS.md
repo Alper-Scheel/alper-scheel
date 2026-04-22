@@ -1,10 +1,11 @@
 # ALVA-TEXT — Session-Status & Übergabe
 
-> **Stand:** 22. April 2026, Session-Ende.
+> **Stand:** 22. April 2026, Abend-Session (Komprimierung).
 > **Branch:** `alva-fixes-live`
 > **Zweck dieses Dokuments:** Nahtlose Übergabe zwischen Cowork-Sessions.
 > Bei Session-Start in neuer Konversation: dieses Dokument + `README.md` +
-> `docs/ARCHITECTURE.md` lesen, dann weitermachen.
+> `docs/PHASE_4_APP_STORE.md` + `docs/PHASE_5_LOCAL_WHISPER.md` lesen, dann
+> weitermachen.
 
 ---
 
@@ -14,11 +15,18 @@ ALVA-TEXT ist eine macOS-Menu-Bar-App für KI-gestütztes Diktieren:
 drei Modi (Standard / Höflich / Nachricht), dynamisch zuweisbare
 Sprach-Hotkeys via F-Tasten (Übersetzung in 25 Sprachen), und eine
 Rückwärtsübersetzung für markierten Fremdtext. Animiertes Status-Icon,
-Verlaufsfenster, Autostart beim Login, First-Run-Onboarding.
+Verlaufsfenster mit Kosten-Tracking, Autostart beim Login,
+First-Run-Onboarding, Permission-Auto-Polling.
 
-Backend heute: **OpenAI** (Whisper für Transkription, GPT-4o-mini für
-Umformulierung/Übersetzung). Geplant für Phase 5: **lokales Whisper**
-(WhisperKit). Phase 6: **lokales Rewrite/Translate** (MLX + Llama).
+**Transkriptions-Backend** ist umschaltbar:
+- **Lokal** (Default, kein Key nötig): WhisperKit + `openai_whisper-small`
+- **Cloud** (API-Key nötig): OpenAI Whisper
+- **Auto**: lokal bevorzugt, Cloud als Fallback
+
+**Rewrite/Translate** läuft immer über OpenAI `gpt-4o-mini` (API-Key
+optional — ohne Key sind Höflich/Nachricht/Übersetzung deaktiviert).
+Englische Übersetzung läuft **lokal via Whisper-Translate-Task**, wenn
+der lokale Backend aktiv ist (keine Cloud-Kosten).
 
 ---
 
@@ -26,244 +34,158 @@ Umformulierung/Übersetzung). Geplant für Phase 5: **lokales Whisper**
 
 Alle Dateien unter `ALVA-TEXT/ALVA_TEXT/`:
 
-| Datei | Rolle |
-|---|---|
-| `ALVA_TEXTApp.swift` | SwiftUI-App-Einstiegspunkt; minimaler `Settings {}`-Scene-Stub |
-| `AppDelegate.swift` | `applicationDidFinishLaunching` — Setzt `.accessory` Policy, fordert Permissions, startet Status-Menu, öffnet Onboarding beim ersten Start |
-| `AppCoordinator.swift` | **Kernzustand** der App — `@MainActor ObservableObject`. Enthält: Modi-State, Aufnahme-Pipeline, Hotkey-Config (Standard/Höflich/Nachricht + Reverse-Translate + Language-Bindings), History-Persistenz, Error-State, Onboarding-/History-Window-Controller, Launch-at-Login via `SMAppService` |
-| `HotkeyManager.swift` | Event-Monitoring. `NSEvent.flagsChanged` (global+local) für Modifier-Combos. **CGEventTap** (`.cgSessionEventTap`, `.listenOnly`) für `.keyDown` — erkennt F-Tasten während Aufnahme + Reverse-Translate-Hotkey. Enthält: `HotkeyConfig`, `HotkeyMode`-Delegate, `LanguageBinding`, `LanguageCatalog` (25 Sprachen + Chunk-Detection via `NLLanguageRecognizer`), `TriggerKeyCatalog`, `fKeyNumber(forKeyCode:)` |
-| `AudioRecorder.swift` | `AVAudioRecorder` → `.m4a` in `temporaryDirectory` |
-| `OpenAIService.swift` | Whisper-Multipart-Upload, `rewriteToPoliteGerman`, `rewriteAsAdaptiveMessage` (mit detailliertem System-Prompt), `translateText(to:)`, generische `chatCompletion`-Helper |
-| `PasteService.swift` | `simulateCommandV`, `simulateCommandC`, Accessibility-Check, Input-Monitoring-Check via `IOHIDCheckAccess`, Permission-Prompt-Helper |
-| `KeychainStore.swift` | Minimaler Wrapper um `SecItemAdd/Update/Delete` für den OpenAI-API-Schlüssel |
-| `StatusMenuController.swift` | `NSStatusItem` mit animiertem Template-Icon (6-Frame-Recording / 8-Frame-Transcribing). Menu-Einträge: Einstellungen, Verlauf, Einrichtung erneut starten, Beenden. Error-Zustand wird als Text angezeigt |
-| `SettingsView.swift` | SwiftUI-UI — große Datei (>1000 Zeilen). TabView mit 5 Tabs: Allgemein, Modi & Kürzel, Sprachübersetzung, Bedienungshilfen, Status. Enthält auch `OnboardingView`, `HistoryView`, `ReverseTranslatePopup`. Card-Layout mit Icons + Farben |
-| `Info.plist` | macOS 15+, `LSUIElement=true`, `NSMicrophoneUsageDescription` |
-| `Assets.xcassets/` | Idle-Icon, 6 Recording-Frames, 8 Transcribing-Frames, AppIcon |
+| Datei | Zeilen | Rolle |
+|---|---:|---|
+| `ALVA_TEXTApp.swift` | 14 | SwiftUI-App-Einstiegspunkt; minimaler `Settings {}`-Scene-Stub |
+| `AppDelegate.swift` | 44 | `applicationDidFinishLaunching` — Setzt `.accessory` Policy, fordert Permissions, startet Status-Menu, öffnet Onboarding beim ersten Start, killt alte Dev-Build-Instanzen (`terminateOlderInstances`) |
+| `AppCoordinator.swift` | 1232 | **Kernzustand** der App — `@MainActor ObservableObject`. Enthält: Modi-State, Aufnahme-Pipeline, Hotkey-Config, `languageBindings`, History-Persistenz, Error-State, Onboarding/Settings/History/ReverseTranslate-Window-Controller (alle mit Activation-Policy-Trick für Accessory-Apps), Launch-at-Login, **Permission-Auto-Polling** alle 2s (`AXIsProcessTrusted`, `IOHIDCheckAccess`), **CGEventTap Auto-Reinstall** nach Permission-Grant, **API-Kosten-Tracking** pro Call |
+| `HotkeyManager.swift` | 653 | Event-Monitoring. `NSEvent.flagsChanged` (global+local) für Modifier-Combos. **CGEventTap** (`.cgSessionEventTap`, `.listenOnly`) für `.keyDown` — erkennt F-Tasten während Aufnahme + Reverse-Translate-Hotkey. Enthält: `HotkeyConfig`, `HotkeyMode`-Delegate, `LanguageBinding`, `LanguageCatalog` (25 Sprachen + Chunk-Detection via `NLLanguageRecognizer`), `TriggerKeyCatalog`, `fKeyNumber(forKeyCode:)`, `reinstallEventTapIfNeeded()` |
+| `AudioRecorder.swift` | 44 | `AVAudioRecorder` → `.m4a` in `temporaryDirectory`. Trackt `lastDuration` für Kosten-Tracking |
+| `OpenAIService.swift` | 241 | Whisper-Multipart-Upload, `rewriteToPoliteGerman`, `rewriteAsAdaptiveMessage` (mit detailliertem System-Prompt), `translateText(to:)`, generische `chatCompletion`-Helper. Alle Chat-Methoden liefern `OpenAIChatResult { text, usage }` für Token-Tracking |
+| `LocalWhisperTranscriber.swift` | 201 | **NEU** — WhisperKit-Wrapper (Swift Package). `openai_whisper-small` (~466 MB), lädt beim ersten Lauf in `~/Library/Application Support/`. Support für Whisper-internen Translate-Task (nur EN). `stripCommonHallucinations()` mit Regex + Phrase-Liste (`[Musik]`, `*seufzt*`, `Vielen Dank`, Untertitel-Stempel, …) |
+| `PasteService.swift` | 114 | `simulateCommandV`, `simulateCommandC`, Accessibility-Check, Input-Monitoring-Check via `IOHIDCheckAccess`, Permission-Prompt-Helper |
+| `KeychainStore.swift` | 79 | Minimaler Wrapper um `SecItemAdd/Update/Delete` für den OpenAI-API-Schlüssel |
+| `StatusMenuController.swift` | 232 | `NSStatusItem` mit animiertem Template-Icon (6-Frame-Recording / 8-Frame-Transcribing). Menu: Einstellungen, Verlauf, Einrichtung, Beenden — **plus dynamische Sprach-Referenz am unteren Ende** (`Fn+F1 → Englisch, …`), rebuilt on `menuWillOpen` |
+| `SettingsView.swift` | 1597 | SwiftUI-UI — TabView mit 5 Tabs: Allgemein (Backend + API-Key + Kosten), Modi & Kürzel, Sprachübersetzung, Bedienungshilfen, Status. Enthält auch `OnboardingView`, `HistoryView`, `ReverseTranslatePopup`, `PermissionIntroBanner`, Auto-Stale-Detection für Permissions |
+| `Info.plist` | — | macOS 15+, `LSUIElement=true`, `NSMicrophoneUsageDescription`, `NSAccessibilityUsageDescription`, `NSAppleEventsUsageDescription` |
+| `ALVA_TEXT.entitlements` | — | **NEU** — Sandbox=false (für TestFlight-Tests), Mic, Network |
+| `PrivacyInfo.xcprivacy` | — | **NEU** — Audio-Data-Collection deklariert, kein Tracking |
+| `Assets.xcassets/` | — | Idle-Icon, 6 Recording-Frames, 8 Transcribing-Frames, AppIcon |
 
 ---
 
 ## 3. Feature-Status
 
-Alle erledigt und in `alva-fixes-live` gemerged (uncommitted):
+Alles fertig und im Branch `alva-fixes-live`:
 
-- ✅ **Chunk 1**: Drei-Modi-Architektur (Standard=⌃, Höflich=⌥, Nachricht=⌘). Settings-Redesign mit Card-Layout. Adaptiver Chat-Prompt mit Ton-Erkennung.
+- ✅ **Chunk 1**: Drei-Modi-Architektur (Standard=⌃, Höflich=⌥, Nachricht=⌘). Settings-Redesign Card-Layout. Adaptiver Chat-Prompt mit Ton-Erkennung (locker / formell).
 - ✅ **Chunk 1b**: Toggle-Start/Stop Kollision gefixt. Emoji-/Abkürzungs-Feintuning im Message-Prompt.
-- ✅ **Chunk 1c**: Leer-Transcript-Guard (GPT wird bei leerem Input nicht mehr aufgerufen). Any-Key-Stop während Toggle.
-- ✅ **Chunk 2**: Sprach-Hotkeys via F-Tasten (F1/F2/F3 = Englisch/Französisch/Italienisch Default). Dynamisch in Settings erweiterbar auf 25 Sprachen.
-- ✅ **Chunk 2b/c/d**: CGEventTap auf `.cgSessionEventTap` / `.listenOnly` (Accessibility-Permission reicht). Kantonesisch + Thailändisch ergänzt. `.function`-Flag wird aus Modifier-Vergleich ausgeschlossen (Fn bricht Aufnahme nicht mehr ab).
-- ✅ **Chunk 3**: Rückwärtsübersetzung mit Popup. Default-Hotkey `⌃⌥Return` (layout-unabhängig). Konfigurierbar via Modifier-Checkboxes + Key-Picker.
-- ✅ **Chunk 3e**: Popup neu gestaltet: Sprach-Chunks via `NLLanguageRecognizer`, Copy-Icons pro Box, Lightbox-Look (keine Titelleiste, Escape schließt).
-- ✅ **Chunk 4**: Autostart (`SMAppService.mainApp`). First-Run-Onboarding (4 Seiten). Transkript-Verlauf mit Suche (letzte 50). Fehler-Handling mit lesbaren deutschen Meldungen.
+- ✅ **Chunk 1c**: Leer-Transcript-Guard. Any-Key-Stop während Toggle.
+- ✅ **Chunk 2**: Sprach-Hotkeys via F-Tasten (F1/F2/F3 = EN/FR/IT Default).
+- ✅ **Chunk 2b/c/d**: CGEventTap auf `.cgSessionEventTap` / `.listenOnly`. Kantonesisch + Thailändisch. `.function`-Flag aus Modifier-Vergleich raus.
+- ✅ **Chunk 3**: Rückwärtsübersetzung mit Popup. Default `⌃⌥Return`, konfigurierbar.
+- ✅ **Chunk 3e**: Popup-Redesign mit `NLLanguageRecognizer`-Chunks, Copy-Icons, Lightbox-Look.
+- ✅ **Chunk 4**: Autostart (`SMAppService.mainApp`), First-Run-Onboarding (4 Seiten), Verlauf mit Suche (50 Einträge), Fehler-Handling mit deutschen Texten.
+- ✅ **Chunk 4a**: UX-Fixes aus Onboarding-Feedback.
+- ✅ **Phase 5**: **Lokales Whisper** (WhisperKit) als Default-Backend. Backend-Switch in Settings (Cloud / Lokal / Auto).
+- ✅ **Chunk 5a**: Whisper-Halluzinationen weggefiltert (`[Musik]`, `*seufzt*`, `Vielen Dank`, Untertitel-Patterns).
+- ✅ **Chunk 5b**: Permission-UX vereinfacht. Auto-Poll alle 2s. Settings-Fenster kommt nach vorne. Input-Monitoring-Dialog-Problem durch "Systemeinstellungen öffnen" umgangen.
+- ✅ **Chunk 5c**: API-Kosten-Tracking (Transkription pro Sekunde, Chat pro Token) — im Settings-Tab "Allgemein" sichtbar.
+- ✅ **Chunk 5d**: Permission-Intro-Banner + Stale-Detection (auto-expand Hilfe nach 4s ohne Permission-Flip).
+- ✅ **Chunk 5e**: CGEventTap reinstalliert sich automatisch, sobald Permissions live gegrantet werden (kein Restart mehr nötig).
+- ✅ **Chunk 5f (22.04.)**: Accessory-App-Window-Fix für Reverse-Translate-Popup + History-Window (Activation-Policy-Trick + `.floating` Window-Level + `orderFrontRegardless`).
+- ✅ **Chunk 5g (22.04.)**: **Menu-Bar-Dropdown zeigt Sprach-Referenz** am unteren Ende (`Fn+F1 → Englisch, …`), dynamisch per `NSMenuDelegate.menuWillOpen`.
 
 ---
 
-## 4. Bekannte offene UX-Probleme (User-Feedback 22.04. morgens)
+## 4. Aktuelle Code-Änderungen (uncommitted)
 
-Diese sind NICHT code-bugs, sondern UX-/macOS-Eigenheiten:
+9 modifizierte Dateien, 5 neue:
 
-1. **"Systemdialog anzeigen" für Input-Monitoring ist unzuverlässig.**
-   `IOHIDRequestAccess(kIOHIDRequestTypeListenEvent)` zeigt den Dialog
-   nur beim allerersten Aufruf. Nach einmaliger Ablehnung oder nach
-   Rebuild wird der Dialog nicht erneut gezeigt. **Lösung:** Button im
-   Onboarding und Settings umbenennen oder durch einfacheres
-   "Systemeinstellungen öffnen" ersetzen (das funktioniert immer).
+```
+ M ALVA-TEXT/ALVA_TEXT.xcodeproj/project.pbxproj      (+38 Zeilen)
+ M ALVA-TEXT/ALVA_TEXT/AppCoordinator.swift           (+518 Zeilen)
+ M ALVA-TEXT/ALVA_TEXT/AppDelegate.swift              (+25 Zeilen)
+ M ALVA-TEXT/ALVA_TEXT/AudioRecorder.swift            (+5 Zeilen)
+ M ALVA-TEXT/ALVA_TEXT/HotkeyManager.swift            (+49 Zeilen)
+ M ALVA-TEXT/ALVA_TEXT/Info.plist                     (+14 Zeilen)
+ M ALVA-TEXT/ALVA_TEXT/OpenAIService.swift            (+32 Zeilen)
+ M ALVA-TEXT/ALVA_TEXT/SettingsView.swift             (+594 Zeilen)
+ M ALVA-TEXT/ALVA_TEXT/StatusMenuController.swift     (+73 Zeilen)
 
-2. **Input-Monitoring wird nach Rebuild stumm abgelehnt.** Die
-   TCC-Datenbank merkt sich den alten Binary-Hash. Bei neuer Signatur
-   kennt macOS die App nicht wieder → muss manuell aus der Liste
-   entfernt und neu hinzugefügt werden. Selbes Problem wie
-   Accessibility. **Dauerhafte Lösung**: Phase 4 (Developer-ID-Signing).
-
-3. **Schritt-Zähler im Onboarding inkonsistent.** Seite mit
-   "Eingabeüberwachung" zeigt "Schritt 3 — ..." im Titel aber
-   "Schritt 4 von 4" oben rechts. Willkommens-Seite wird als "1 von 4"
-   gezählt, hat aber keinen "Schritt N —"-Prefix.
-   **Lösung:** Einheitliche Nummerierung.
-
-4. **Zwei ALVA-Icons in Menu-Bar.** Xcode `⌘R` lässt oft die alte Binary
-   laufen, die neue wird daneben gestartet. Lösung: vor `⌘R` die alte
-   App explizit beenden (`⌘Q` auf der App oder Activity-Monitor-Kill).
-   Tritt nur bei Dev-Builds auf, nach Release-Build weg.
-
-5. **Pre-Population in Systemeinstellungen nicht möglich.** macOS
-   verbietet aus Sicherheitsgründen, dass Apps sich selbst zu
-   Accessibility/Input-Monitoring hinzufügen. Der Plus-Button + Finder
-   + App-Auswahl ist der einzige Weg. Best Practice: kurzes
-   Video/GIF-Onboarding mit Drag-Target-Anleitung (später).
-
-6. **Message-Modus-Prompt-Tuning** noch offen: User möchte Emoji-Regeln
-   leicht nachtunen, LG/VG im lockeren Ton beibehalten (ist bereits
-   im Prompt, funktioniert meistens).
-
----
-
-## 5. Reset-Skript für sauberes Onboarding-Retest
-
-Dieses Skript im Terminal ausführen, um **alle** ALVA-TEXT-Spuren zu
-entfernen und Onboarding von null zu testen:
-
-```bash
-#!/usr/bin/env bash
-# ALVA-TEXT complete reset — run BEFORE testing onboarding from scratch
-
-# 1. Stop all running instances
-pkill -x "ALVA-TEXT" 2>/dev/null || true
-sleep 1
-
-# 2. Reset all TCC permissions (Accessibility, Input-Monitoring, Microphone)
-tccutil reset All com.alva.text 2>/dev/null || true
-
-# 3. Delete app preferences (UserDefaults: Hotkeys, History, Onboarding-Flag, …)
-defaults delete com.alva.text 2>/dev/null || true
-
-# 4. Delete API key from Keychain
-security delete-generic-password -s "com.alva.text" -a "openaiApiKey" 2>/dev/null || true
-
-# 5. Clear Xcode DerivedData (optional, für ganz saubere Rebuilds)
-rm -rf ~/Library/Developer/Xcode/DerivedData/ALVA_TEXT-* 2>/dev/null || true
-
-# 6. Unregister from launch-at-login (SMAppService)
-# Kein direkter CLI-Befehl; wenn aktiv, über System-Settings → Anmeldeobjekte entfernen.
-
-echo "✓ ALVA-TEXT vollständig zurückgesetzt. Jetzt in Xcode ⌘⇧K → ⌘B → ⌘R."
+?? ALVA-TEXT/ALVA_TEXT/ALVA_TEXT.entitlements        (neu)
+?? ALVA-TEXT/ALVA_TEXT/LocalWhisperTranscriber.swift (neu)
+?? ALVA-TEXT/ALVA_TEXT/PrivacyInfo.xcprivacy         (neu)
+?? docs/PHASE_4_APP_STORE.md                         (neu)
+?? docs/PHASE_5_LOCAL_WHISPER.md                     (neu)
 ```
 
-Speichere das als `~/reset-alva.sh`, mach's ausführbar (`chmod +x
-~/reset-alva.sh`) und rufe `~/reset-alva.sh` vor jedem sauberen
-Onboarding-Test auf.
+**Insgesamt:** 9 changed files, +1175 / −173 Zeilen.
 
 ---
 
-## 6. Nächste Schritte
+## 5. Nächste Schritte
 
 ### Phase 4 — App-Store-Ready (höchste Priorität, nächste Session)
 
 - Apple-Developer-Account-Setup validieren
 - Bundle-ID in App-Store-Connect registrieren (`com.alva.text` oder
   `com.alperscheel.alvatext`)
-- Entitlements: `com.apple.security.app-sandbox`,
-  `com.apple.security.device.audio-input`,
-  `com.apple.security.automation.apple-events`
+- Entitlements auf Sandbox umstellen (aktuell `sandbox=false` nur für
+  TestFlight-Interne-Tests), Device-Audio-Input, Apple-Events
 - Hardened Runtime aktivieren
-- Info.plist erweitern:
-  - `NSAccessibilityUsageDescription`
-  - `NSInputMonitoringUsageDescription` (via NSRequiresAquaSystemAppearance
-    oder explizit)
-  - App-Icon-Link
-- `SMAppService`-Konfiguration für signierte App
-- Privacy Manifest (`PrivacyInfo.xcprivacy`) mit den
-  Data-Use-Kategorien deklarieren
 - Code-Signing mit **Developer-ID Application**-Zertifikat
 - Erste Archive-Build via Xcode → App-Store-Connect
 - TestFlight-Build mit Alper + Family + Marius + Tobias als Testern
 - App-Store-Listing: Screenshots, Beschreibung, Kategorie,
   Datenschutzerklärung
 
-**Realistische Zeit**: 3-5h konzentriert + Review-Wartezeit (1-3 Tage).
+Details: siehe `docs/PHASE_4_APP_STORE.md`.
 
-### Phase 5 — Lokales Whisper (nach Phase 4 oder parallel)
-
-- `WhisperKit` via Swift Package Manager einbinden
-- `LocalTranscriber`-Klasse, die `whisper-small` beim ersten Start
-  herunterlädt (~466 MB, nach `~/Library/Application
-  Support/ALVA-TEXT/models/`)
-- Settings-Option: Transkription **Cloud / Lokal / Auto**
-- Fallback bei Netz-/API-Key-Fehler auf lokal, falls verfügbar
-- UX für Modell-Download (Progress-Bar)
+**Realistische Zeit**: 3–5h konzentriert + Review-Wartezeit (1–3 Tage).
 
 ### Phase 6 — Lokales Rewrite (optional, später)
 
 - MLX-Swift einbinden
-- Llama 3.2 3B Modell (~2 GB) oder Qwen 2.5 3B
-- Priorität: **Englisch-Übersetzung lokal** (User-Wunsch)
-- Rewrite-Modi können ggf. Cloud bleiben (Qualitätsunterschied)
+- Llama 3.2 3B (~2 GB) oder Qwen 2.5 3B
+- Priorität: Englisch-Übersetzung **bereits lokal via Whisper-Translate**
+  (erledigt in Phase 5)
+- Rewrite-Modi (Höflich / Nachricht) können Cloud bleiben
 
-### Kleine UX-Polituren (zwischendurch)
+### Kleine Polituren
 
-- "Systemdialog anzeigen" zusammenlegen mit "Systemeinstellungen
-  öffnen", wenn das IOHID-Prompt unzuverlässig ist
-- Onboarding-Schritt-Zähler konsistent machen
-- Erkennung "Mehrere ALVA-Instanzen laufen" mit Auto-Quit
-- Kurzes Intro-GIF/Video im Onboarding
+- Reverse-Translate-Popup final testen (Activation-Policy-Fix steht,
+  aber noch nicht durch Alper gegen-geprüft).
+- Menu-Bar-Sprach-Referenz (heute gebaut) optisch feinjustieren.
 
 ---
 
-## 7. Handover-Workflow
+## 6. Handover-Workflow (diese Session → nächste)
 
-### Git-Commit + Push (in deinem Mac-Terminal ausführen):
+Die Sandbox kann `.git/index.lock` auf dem Mount nicht entfernen — daher
+müssen Commit + Push + Backup in **deinem Terminal** laufen. Das Skript
+dafür liegt unter `docs/handover.sh` (siehe unten) und macht in einem
+Rutsch:
+
+1. Stale Git-Lock entfernen
+2. Alles adden (inkl. neuer Dateien, Entitlements, Privacy Manifest)
+3. Commit mit Standard-Message
+4. Push nach GitHub (`alper-scheel.git`, Branch `alva-fixes-live`)
+5. Rsync-Backup nach MS 512 (`ms512@100.101.8.27:~/backups/alper-scheel/`)
+
+**Ausführung:**
 
 ```bash
-cd ~/codex-work/alper-scheel
-
-# Sanity: was ist ungecommitet?
-git status
-
-# Alles adden (inkl. neuer Dateien: Assets.xcassets, KeychainStore.swift, docs/)
-git add ALVA-TEXT/ALVA_TEXT.xcodeproj/project.pbxproj
-git add ALVA-TEXT/ALVA_TEXT/ALVA_TEXTApp.swift
-git add ALVA-TEXT/ALVA_TEXT/AppCoordinator.swift
-git add ALVA-TEXT/ALVA_TEXT/AppDelegate.swift
-git add ALVA-TEXT/ALVA_TEXT/HotkeyManager.swift
-git add ALVA-TEXT/ALVA_TEXT/OpenAIService.swift
-git add ALVA-TEXT/ALVA_TEXT/PasteService.swift
-git add ALVA-TEXT/ALVA_TEXT/SettingsView.swift
-git add ALVA-TEXT/ALVA_TEXT/StatusMenuController.swift
-git add ALVA-TEXT/ALVA_TEXT/KeychainStore.swift
-git add ALVA-TEXT/ALVA_TEXT/Assets.xcassets
-git add docs/
-
-# Commit
-git commit -m "Chunks 1-4: full feature set (modes, language hotkeys, reverse translate, onboarding, history)
-
-- 3 recording modes (Standard=Ctrl, Polite=Opt, Message=Cmd) with adaptive chat prompt
-- Toggle (double-tap) with any-key-stop
-- Language F-key hotkeys (F1=EN, F2=FR, F3=IT) + 25 languages in catalog
-- Reverse translate (Ctrl+Opt+Return) with NLLanguageRecognizer chunks + lightbox popup
-- Menu-bar icon with 6/8-frame animations
-- Onboarding, history window (50 entries), launch-at-login, error UX
-- CGEventTap at session level, listenOnly, works with Accessibility only"
-
-# Push
-git push origin alva-fixes-live
+bash ~/codex-work/alper-scheel/docs/handover.sh
 ```
 
-Falls `.git/index.lock` noch da (Sandbox-Artefakt):
-```bash
-rm -f .git/index.lock
-```
-
-### In der nächsten Cowork-Session
-
-1. Neue Konversation starten
-2. Ordner-Zugriff gewähren: `~/codex-work/alper-scheel`
-3. Dieses Dokument öffnen: `docs/SESSION_STATUS.md`
-4. Mit **Phase 4 (App-Store-Ready)** fortsetzen, falls Chunk 4 getestet
-   und OK ist
-5. Offene UX-Polituren nach Bedarf abarbeiten
+(Pfad anpassen, falls das Repo woanders liegt.)
 
 ---
 
-## 8. Build-Setup & Permissions-Regel
+## 7. Build-Setup & Permissions
 
-**Nach jedem Rebuild** (Xcode-Dev-Build):
-1. Systemeinstellungen → Datenschutz & Sicherheit → **Bedienungshilfen**:
-   ALVA-TEXT `−` entfernen, `+` neu hinzufügen
-2. Systemeinstellungen → Datenschutz & Sicherheit → **Eingabeüberwachung**:
-   ALVA-TEXT `−` entfernen, `+` neu hinzufügen
-3. Nach Klick auf `+` via Finder zu `~/Library/Developer/Xcode/DerivedData/ALVA_TEXT-*/Build/Products/Debug/ALVA-TEXT.app` navigieren
-4. App aktivieren (Toggle rechts)
-5. Nach Input-Monitoring-Änderung: **App beenden und neu starten**
-   (macOS zieht Input-Monitoring-Rechte erst nach Neustart an)
+**Nach jedem Dev-Rebuild** (nur Xcode `⌘R`, nicht nach Release-Build):
 
-Diese Choreografie entfällt komplett in Phase 4 mit Developer-ID.
+1. Systemeinstellungen → Datenschutz & Sicherheit → **Bedienungshilfen**
+   → ALVA-TEXT `−` entfernen, `+` neu hinzufügen.
+2. Systemeinstellungen → Datenschutz & Sicherheit → **Eingabeüberwachung**
+   → ALVA-TEXT `−` entfernen, `+` neu hinzufügen.
+3. Nach Input-Monitoring-Änderung: **App beenden und neu starten**.
+
+Diese Choreografie entfällt in Phase 4 mit Developer-ID-Signing.
 
 ---
 
-## 9. Default-Konfiguration
+## 8. Default-Konfiguration
 
 | Element | Default |
 |---|---|
+| Transkriptions-Backend | **Lokal** (WhisperKit) |
+| Cloud-Fallback | Auto (wenn lokal fehlschlägt und Key da) |
+| Whisper-Modell (lokal) | `openai_whisper-small` (~466 MB) |
+| Whisper-Modell (Cloud) | `gpt-4o-mini-transcribe` |
+| Umformulierungs-Modell | `gpt-4o-mini` |
 | Standard-Hotkey | `⌃` (Control) |
 | Höflich-Hotkey | `⌥` (Option) |
 | Nachricht-Hotkey | `⌘` (Command) |
@@ -271,18 +193,18 @@ Diese Choreografie entfällt komplett in Phase 4 mit Developer-ID.
 | Doppeldruck-Fenster | 350 ms |
 | Mindest-Aufnahmedauer | 400 ms |
 | Sprach-Bindings | F1=en, F2=fr, F3=it |
-| Whisper-Modell | `gpt-4o-mini-transcribe` |
-| Umformulierungs-Modell | `gpt-4o-mini` |
 | Autostart | aus |
 | History | an (max. 50) |
+| Permission-Poll-Intervall | 2 s |
 
 ---
 
-## 10. Kontakt & Kontext
+## 9. Kontakt & Kontext
 
 - **User**: Alper Scheel (alper.scheel@gmail.com)
 - **Repo**: `github.com/Alper-Scheel/alper-scheel`
-- **Lokaler Pfad**: `~/codex-work/alper-scheel`
+- **Lokaler Pfad (Mac)**: `~/codex-work/alper-scheel`
+- **Mac-Backup-Ziel**: `ms512@100.101.8.27:~/backups/alper-scheel/`
 - **Xcode-Projekt**: `ALVA-TEXT/ALVA_TEXT.xcodeproj`
 - **Bundle-ID (aktuell)**: `com.alva.text`
 - **macOS-Target**: 15.0

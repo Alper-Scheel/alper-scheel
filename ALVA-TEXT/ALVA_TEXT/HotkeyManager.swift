@@ -343,6 +343,19 @@ final class HotkeyManager {
         removeEventTap()
     }
 
+    /// True if the CGEventTap successfully installed. The coordinator polls
+    /// this so we can re-try installation once the user grants Accessibility
+    /// mid-session (without needing a full app restart).
+    var isEventTapInstalled: Bool { eventTap != nil }
+
+    /// Tries to install the CGEventTap if it isn't already up. Called from
+    /// the coordinator when Accessibility permission flips from false to
+    /// true at runtime.
+    func reinstallEventTapIfNeeded() {
+        guard eventTap == nil else { return }
+        installEventTap()
+    }
+
     // MARK: - CGEventTap
 
     private func installEventTap() {
@@ -584,6 +597,28 @@ final class HotkeyManager {
     private func handleHoldModes(standard: Bool, polite: Bool, message: Bool) {
         if toggleRecording { return }
 
+        // If we're already holding, first check whether the current hold
+        // has ended. If the user switched from one combo to another in a
+        // single event (e.g. ⌃ → ⌃⌥ by adding Option), we stop the old
+        // hold AND fall through to start the new one.
+        if isHoldRecording, let holdMode {
+            let stillPressed: Bool
+            switch holdMode {
+            case .standard: stillPressed = standard
+            case .polite:   stillPressed = polite
+            case .message:  stillPressed = message
+            }
+            if !stillPressed {
+                isHoldRecording = false
+                self.holdMode = nil
+                delegate?.hotkeyStop()
+                // don't return — maybe another mode is now active
+            } else {
+                return
+            }
+        }
+
+        // Start a new hold if any mode's combo is pressed.
         if !isHoldRecording {
             if standard {
                 isHoldRecording = true
@@ -598,20 +633,6 @@ final class HotkeyManager {
                 holdMode = .message
                 delegate?.hotkeyStart(mode: .message)
             }
-            return
-        }
-
-        guard let holdMode else { return }
-        let stillPressed: Bool
-        switch holdMode {
-        case .standard:  stillPressed = standard
-        case .polite:    stillPressed = polite
-        case .message: stillPressed = message
-        }
-        if !stillPressed {
-            isHoldRecording = false
-            self.holdMode = nil
-            delegate?.hotkeyStop()
         }
     }
 

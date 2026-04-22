@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	App Sandbox: required for Mac App Store distribution.
+	Temporarily disabled during initial TestFlight beta while we validate
+	the Accessibility/Input-Monitoring dance end-to-end. Once TestFlight
+	works, flip this to <true/> and re-test before App Store submission.
+	-->
+	<key>com.apple.security.app-sandbox</key>
+	<false/>
+
+	<!-- Microphone: for recording the user's dictation. -->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
+
+	<!-- Network: outbound HTTPS to api.openai.com. -->
+	<key>com.apple.security.network.client</key>
+	<true/>
+
+	<!--
+	Accessibility and Input-Monitoring are TCC-level permissions granted
+	via System Settings, not entitlements. They are not declared here.
+	-->
+</dict>
+</plist>

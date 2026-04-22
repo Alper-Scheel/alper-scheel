@@ -7,19 +7,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var menuController: StatusMenuController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        terminateOlderInstances()
+
         NSApp.setActivationPolicy(.accessory)
         coordinator.requestPermissions()
 
         menuController = StatusMenuController(coordinator: coordinator)
         coordinator.start()
 
-        // First-run onboarding: a guided 4-step setup that asks for API key,
-        // Accessibility and Input-Monitoring. Skipped if the user has seen
-        // it before. Can be re-launched from the status menu.
+        // First-run onboarding: a guided setup for API key, Accessibility
+        // and Input-Monitoring. Skipped if the user has seen it before.
+        // Can be re-launched from the status menu.
         if coordinator.shouldShowOnboarding {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                 self?.coordinator.showOnboardingWindow()
             }
+        }
+    }
+
+    /// On dev builds (running ⌘R in Xcode) the previous instance is sometimes
+    /// not torn down. We'd end up with two ALVA icons in the menu bar and
+    /// both firing on every keystroke. This kills any older instances so the
+    /// newest run wins.
+    private func terminateOlderInstances() {
+        let myPID = ProcessInfo.processInfo.processIdentifier
+        let myBundleID = Bundle.main.bundleIdentifier
+        guard let myBundleID else { return }
+        let others = NSWorkspace.shared.runningApplications.filter {
+            $0.bundleIdentifier == myBundleID && $0.processIdentifier != myPID
+        }
+        for app in others {
+            print("ALVA: terminating stale instance pid=\(app.processIdentifier)")
+            app.terminate()
         }
     }
 }

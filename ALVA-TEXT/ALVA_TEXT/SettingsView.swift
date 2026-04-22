@@ -77,12 +77,18 @@ private struct GeneralTab: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
-                Card(title: "OpenAI", subtitle: "API-Schlüssel für Whisper & GPT", icon: "key.fill", accent: .blue) {
-                    SecureField("sk-…", text: $coordinator.apiKey)
+                TranscriptionBackendCard()
+
+                Card(title: "OpenAI-Schlüssel (optional)",
+                     subtitle: "Nur für Höflich, Nachricht und Sprach-Übersetzung",
+                     icon: "key.fill",
+                     accent: .blue) {
+                    SecureField("sk-… (leer lassen für reinen Lokalbetrieb)", text: $coordinator.apiKey)
                         .textFieldStyle(.roundedBorder)
-                    Text("Wird im macOS-Schlüsselbund gespeichert.")
+                    Text("Ohne Schlüssel funktioniert der Standard-Modus (reines Transkript) vollständig lokal. Für Umformulierungen und Übersetzungen wird ein Schlüssel von platform.openai.com benötigt. Der Schlüssel wird lokal im macOS-Schlüsselbund gespeichert.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Card(title: "Verhalten", subtitle: "Standardaktionen nach der Transkription", icon: "gearshape.2.fill", accent: .gray) {
@@ -239,6 +245,13 @@ private struct TranslationTab: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
+                if !coordinator.inputMonitoringTrusted {
+                    PermissionIntroBanner(
+                        title: "Wir brauchen deine Mithilfe",
+                        text: "Damit F-Tasten für die Sprach-Übersetzung und die Rückwärtsübersetzung funktionieren, musst du unten die Eingabeüberwachung freigeben. Das ist nur einmal nötig."
+                    )
+                }
+
                 InputMonitoringCard(tick: $inputMonitoringTick)
 
                 LanguageBindingsCard()
@@ -262,50 +275,109 @@ private struct TranslationTab: View {
 private struct InputMonitoringCard: View {
     @EnvironmentObject var coordinator: AppCoordinator
     @Binding var tick: Int
+    @State private var showHelp: Bool = false
 
     var body: some View {
-        let trusted = coordinator.isInputMonitoringTrusted()
-        Card(title: "Eingabeüberwachung",
-             subtitle: trusted ? "Freigegeben" : "Muss freigegeben werden — sonst funktionieren weder F-Tasten noch Rückwärtsübersetzung",
-             icon: "keyboard.fill",
-             accent: trusted ? .green : .orange) {
-            HStack(spacing: 10) {
-                Image(systemName: trusted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                    .font(.title2)
-                    .foregroundStyle(trusted ? .green : .orange)
-                VStack(alignment: .leading) {
-                    Text(trusted ? "Eingabeüberwachung aktiv" : "Eingabeüberwachung fehlt")
-                        .fontWeight(.semibold)
-                    Text(trusted
-                         ? "F-Tasten für Sprachwahl und ⌃⌥Return für Rückwärtsübersetzung werden erkannt."
-                         : "Ohne diese Erlaubnis sehen wir keine Tasten-Events von anderen Apps. Jedes Sprach-F-Taste, jeder Any-Key-Stop im Toggle und die Rückwärtsübersetzung bleiben stumm.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer()
-            }
-            .id(tick)
+        PermissionCard(
+            title: "Eingabeüberwachung",
+            subtitle: "Ermöglicht F-Tasten-Sprachwahl und Rückwärtsübersetzung",
+            trusted: coordinator.inputMonitoringTrusted,
+            trustedLabel: "F-Tasten für Sprachwahl und ⌃⌥Return für Rückwärtsübersetzung werden erkannt.",
+            missingLabel: "Ohne diese Erlaubnis sehen wir keine Tasten-Events anderer Apps. F-Tasten, Any-Key-Stop und Rückwärtsübersetzung bleiben stumm.",
+            primaryAction: {
+                coordinator.requestInputMonitoringPrompt()
+                coordinator.openInputMonitoringSettings()
+            },
+            primaryLabel: "Jetzt freigeben",
+            secondaryAction: nil,
+            secondaryLabel: "",
+            helpExpanded: $showHelp,
+            helpText: "Systemeinstellungen → Datenschutz & Sicherheit → Eingabeüberwachung. ALVA-TEXT hinzufügen und aktivieren. Nach Xcode-Rebuilds ggf. alten Eintrag entfernen und die neu gebaute App erneut hinzufügen."
+        )
+    }
+}
 
-            HStack {
-                Button("Systemdialog anfordern") {
-                    coordinator.requestInputMonitoringPrompt()
-                    tick &+= 1
-                }
-                Button("Systemeinstellungen öffnen") {
-                    coordinator.openInputMonitoringSettings()
-                }
-                Button("Erneut prüfen") {
-                    tick &+= 1
+private struct TranscriptionBackendCard: View {
+    @EnvironmentObject var coordinator: AppCoordinator
+    @State private var loadTick: Int = 0
+
+    var body: some View {
+        let isLocalAvailable = coordinator.localWhisper.isAvailable
+        Card(title: "Transkriptions-Modus",
+             subtitle: "Wo die Sprache-zu-Text-Umwandlung passiert",
+             icon: "waveform",
+             accent: .teal) {
+
+            Picker("Modus", selection: $coordinator.transcriptionBackend) {
+                ForEach(TranscriptionBackend.allCases, id: \.self) { backend in
+                    Text(backend.germanLabel).tag(backend)
                 }
             }
-            .buttonStyle(.bordered)
+            .pickerStyle(.radioGroup)
+            .labelsHidden()
 
-            Text("Hinweis: Systemeinstellungen → Datenschutz & Sicherheit → Eingabeüberwachung. ALVA-TEXT hinzufügen und aktivieren. Nach jedem Rebuild ggf. alten Eintrag entfernen und neu hinzufügen (selbe Logik wie bei den Bedienungshilfen).")
+            Text(coordinator.transcriptionBackend.germanDescription)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 2)
+
+            Divider().padding(.vertical, 2)
+
+            // Local model status row
+            HStack(spacing: 10) {
+                Image(systemName: localStatusIcon(isAvailable: isLocalAvailable))
+                    .font(.title3)
+                    .foregroundStyle(localStatusColor(isAvailable: isLocalAvailable))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(localStatusTitle(isAvailable: isLocalAvailable))
+                        .fontWeight(.medium)
+                    Text(localStatusDetail(isAvailable: isLocalAvailable))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Prüfen") { loadTick &+= 1 }
+                    .buttonStyle(.bordered)
+            }
+            .id(loadTick)
+
+            if !isLocalAvailable {
+                Label("So fügst du WhisperKit hinzu: Xcode → File → Add Package Dependencies → https://github.com/argmaxinc/WhisperKit → Add Package → WhisperKit anhaken → Add. Dann Clean Build Folder (⌘⇧K) und erneut bauen.",
+                      systemImage: "info.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
+    }
+
+    private func localStatusIcon(isAvailable: Bool) -> String {
+        if !isAvailable { return "exclamationmark.triangle.fill" }
+        if coordinator.localWhisper.isReady { return "checkmark.circle.fill" }
+        return "arrow.down.circle"
+    }
+
+    private func localStatusColor(isAvailable: Bool) -> Color {
+        if !isAvailable { return .orange }
+        if coordinator.localWhisper.isReady { return .green }
+        return .blue
+    }
+
+    private func localStatusTitle(isAvailable: Bool) -> String {
+        if !isAvailable { return "Lokales Modell nicht eingebunden" }
+        if coordinator.localWhisper.isReady { return "Whisper-Small geladen" }
+        return "Whisper-Small — wird beim ersten Lokal-Transkript geladen"
+    }
+
+    private func localStatusDetail(isAvailable: Bool) -> String {
+        if !isAvailable {
+            return "WhisperKit-Swift-Package noch nicht zum Xcode-Projekt hinzugefügt. Siehe Anleitung unten."
+        }
+        if coordinator.localWhisper.isReady {
+            return "Ready. Läuft mit Metal-Beschleunigung direkt auf deinem Mac."
+        }
+        return "Einmaliger Download ca. 466 MB, wird nach Application Support abgelegt."
     }
 }
 
@@ -571,65 +643,184 @@ private struct LabeledSlider: View {
 
 private struct AccessibilityTab: View {
     @EnvironmentObject var coordinator: AppCoordinator
-    @State private var tick: Int = 0
+    @State private var showHelp: Bool = false
 
     var body: some View {
+        let trusted = coordinator.accessibilityTrusted
         ScrollView {
             VStack(spacing: 14) {
-                Card(title: "Accessibility-Status", icon: "hand.tap", accent: coordinator.isAccessibilityTrusted() ? .green : .orange) {
-                    statusRow
+                if !trusted {
+                    PermissionIntroBanner(
+                        title: "Wir brauchen deine Mithilfe",
+                        text: "Damit ALVA den transkribierten Text automatisch in die fokussierte App einfügen kann, musst du unten die Freigabe in den macOS-Systemeinstellungen aktivieren. Das ist nur einmal nötig."
+                    )
                 }
 
-                Card(title: "Aktionen", icon: "wrench.and.screwdriver.fill", accent: .blue) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Button("Systemdialog anzeigen (Erlaubnis anfordern)") {
-                            coordinator.requestAccessibilityPrompt()
-                            tick &+= 1
-                        }
-                        Button("Systemeinstellungen öffnen") {
-                            coordinator.openAccessibilitySettings()
-                        }
-                        Button("Erneut prüfen") {
-                            tick &+= 1
-                        }
-                        Button("Testeinfügung (in vorher fokussierte App)") {
-                            coordinator.runPasteSelfTest()
-                        }
-                        .disabled(!coordinator.isAccessibilityTrusted())
-                    }
-                    .buttonStyle(.bordered)
-                }
-
-                Card(title: "Warum wird das benötigt?", icon: "questionmark.circle", accent: .gray) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Das automatische Einfügen schickt einen simulierten ⌘V-Tastendruck über die Accessibility-API. macOS erlaubt das nur Apps, die ausdrücklich unter Systemeinstellungen → Datenschutz & Sicherheit → Bedienungshilfen freigegeben sind.")
-                        Text("Nach jedem Neu-Build in Xcode erhält das Programm eine neue Signatur. macOS kann die Erlaubnis dann zurücksetzen. In dem Fall: alten ALVA-TEXT-Eintrag per Minus-Button entfernen und die neu gebaute App erneut hinzufügen.")
-                    }
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                }
+                PermissionCard(
+                    title: "Bedienungshilfen",
+                    subtitle: "Ermöglicht automatisches Einfügen",
+                    trusted: trusted,
+                    trustedLabel: "Auto-Einfügen ist aktiv.",
+                    missingLabel: "Auto-Einfügen deaktiviert — Texte landen nur in der Zwischenablage.",
+                    primaryAction: {
+                        coordinator.requestAccessibilityPrompt()
+                        coordinator.openAccessibilitySettings()
+                    },
+                    primaryLabel: "Jetzt freigeben",
+                    secondaryAction: trusted ? { coordinator.runPasteSelfTest() } : nil,
+                    secondaryLabel: "Testeinfügung",
+                    helpExpanded: $showHelp,
+                    helpText: "ALVA simuliert beim automatischen Einfügen einen ⌘V-Tastendruck über die Accessibility-API. macOS erlaubt das nur Apps, die ausdrücklich unter Systemeinstellungen → Datenschutz & Sicherheit → Bedienungshilfen freigegeben sind. Nach Xcode-Rebuilds ändert sich die App-Signatur; dann den alten Eintrag mit „−\" entfernen und die neu gebaute App erneut hinzufügen."
+                )
             }
             .padding(2)
         }
     }
+}
 
-    @ViewBuilder
-    private var statusRow: some View {
-        let trusted = coordinator.isAccessibilityTrusted()
-        HStack(spacing: 10) {
-            Image(systemName: trusted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+/// Friendly banner shown above a permission card when the user still has
+/// work to do. Avoids the "looks broken" feeling by naming the need as
+/// a cooperative task ("Wir brauchen deine Mithilfe") rather than an
+/// error.
+private struct PermissionIntroBanner: View {
+    let title: String
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "hand.raised.fill")
                 .font(.title2)
-                .foregroundStyle(trusted ? .green : .orange)
-            VStack(alignment: .leading) {
-                Text(trusted ? "Bedienungshilfen freigegeben" : "Bedienungshilfen fehlen")
-                    .fontWeight(.semibold)
-                Text(trusted ? "Auto-Einfügen ist aktiv."
-                             : "Auto-Einfügen ist deaktiviert — Texte landen nur in der Zwischenablage.")
+                .foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.headline)
+                Text(text)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.orange.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+        )
+    }
+}
+
+/// Uniform permission card with auto-updating status, single primary
+/// button and an optional expandable help section. Auto-detects
+/// "stale entry" case: if the user clicked the primary button and the
+/// status still hasn't flipped after 4s, show an extra hint that the
+/// OS has probably kept an older signature and the entry needs to be
+/// removed and re-added.
+private struct PermissionCard: View {
+    let title: String
+    let subtitle: String
+    let trusted: Bool
+    let trustedLabel: String
+    let missingLabel: String
+    let primaryAction: () -> Void
+    let primaryLabel: String
+    let secondaryAction: (() -> Void)?
+    let secondaryLabel: String
+    @Binding var helpExpanded: Bool
+    let helpText: String
+
+    @State private var primaryClickedAt: Date?
+    @State private var staleTicks: Int = 0   // forces re-render every second
+
+    /// True once we're confident the user granted permission via the UI
+    /// but the ALVA entry in System Settings points to an older binary
+    /// signature and the OS is still denying.
+    private var isStale: Bool {
+        guard let clicked = primaryClickedAt, !trusted else { return false }
+        return Date().timeIntervalSince(clicked) > 4
+    }
+
+    var body: some View {
+        Card(title: title, subtitle: subtitle,
+             icon: trusted ? "checkmark.seal.fill" : "exclamationmark.shield.fill",
+             accent: trusted ? .green : .orange) {
+
+            HStack(spacing: 10) {
+                Image(systemName: trusted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .font(.title2)
+                    .foregroundStyle(trusted ? Color.green : Color.orange)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(trusted ? "Freigegeben" : "Freigabe erforderlich")
+                        .fontWeight(.semibold)
+                    Text(trusted ? trustedLabel : missingLabel)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+            }
+
+            if isStale {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "lightbulb.fill")
+                        .foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Sieht aus, als wäre der Eintrag schon da, aber nicht aktiv?")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                        Text("Dann ist der Eintrag von einer älteren App-Version. Einmal per „−\" entfernen und die App (jetzt die aktuelle Version) wieder per „+\" hinzufügen. Aktiviert sich dann automatisch.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(10)
+                .background(
+                    RoundedRectangle(cornerRadius: 8).fill(Color.orange.opacity(0.10))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8).stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                )
+            }
+
+            HStack {
+                if !trusted {
+                    Button(primaryLabel) {
+                        primaryClickedAt = Date()
+                        primaryAction()
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                if let action = secondaryAction {
+                    Button(secondaryLabel, action: action)
+                        .buttonStyle(.bordered)
+                }
+                Spacer()
+            }
+
+            DisclosureGroup(isExpanded: $helpExpanded) {
+                Text(helpText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 4)
+            } label: {
+                Label("Warum wird das benötigt?", systemImage: "questionmark.circle")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
-        .id(tick)
+        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
+            staleTicks &+= 1
+        }
+        .onChange(of: trusted) { _, newValue in
+            if newValue {
+                primaryClickedAt = nil
+            }
+        }
     }
 }
 
@@ -649,6 +840,8 @@ private struct StatusTab: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+
+                CostCard()
 
                 if let errorMessage = coordinator.lastErrorMessage {
                     Card(title: "Letzter Fehler",
@@ -696,6 +889,129 @@ private struct StatusTab: View {
         case .needsAccessibility: return "Bedienungshilfen fehlen"
         case .error: return "Fehler"
         }
+    }
+}
+
+// MARK: - Cost tracking card
+
+private struct CostCard: View {
+    @EnvironmentObject var coordinator: AppCoordinator
+    @State private var showRecent: Bool = false
+
+    var body: some View {
+        Card(title: "OpenAI-API-Kosten",
+             subtitle: "Nur Cloud-Aufrufe — Lokalbetrieb ist gratis",
+             icon: "dollarsign.circle.fill",
+             accent: .yellow) {
+
+            HStack(spacing: 18) {
+                costColumn("Heute", amount: coordinator.costToday, tint: .blue)
+                Divider().frame(height: 40)
+                costColumn("Diesen Monat", amount: coordinator.costThisMonth, tint: .green)
+                Divider().frame(height: 40)
+                costColumn("Gesamt", amount: coordinator.costAllTime, tint: .gray)
+                Spacer()
+            }
+
+            DisclosureGroup(isExpanded: $showRecent) {
+                if coordinator.costEntries.isEmpty {
+                    Text("Noch keine Einträge.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 4)
+                } else {
+                    VStack(spacing: 2) {
+                        ForEach(coordinator.costEntries.prefix(10)) { entry in
+                            HStack(spacing: 8) {
+                                Text(entry.date.formatted(date: .omitted, time: .standard))
+                                    .font(.caption2.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 60, alignment: .leading)
+                                Text(entry.kind.germanLabel)
+                                    .font(.caption2)
+                                    .foregroundStyle(colorFor(entry.kind))
+                                    .frame(width: 85, alignment: .leading)
+                                Text(entry.usageDescription)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Text(formatUSD(entry.costUSD))
+                                    .font(.caption2.monospacedDigit())
+                            }
+                            .padding(.vertical, 1)
+                        }
+                    }
+                    .padding(.top, 6)
+                }
+                HStack {
+                    Button("Alle löschen") {
+                        coordinator.clearCostEntries()
+                    }
+                    .foregroundStyle(.red)
+                    .disabled(coordinator.costEntries.isEmpty)
+                    Spacer()
+                    Text("\(coordinator.costEntries.count) Einträge")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 8)
+            } label: {
+                Label("Letzte Einträge anzeigen", systemImage: "list.bullet")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func costColumn(_ title: String, amount: Double, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(formatUSD(amount))
+                .font(.title3.monospacedDigit())
+                .foregroundStyle(tint)
+        }
+    }
+
+    private func formatUSD(_ amount: Double) -> String {
+        // Cent-precision below 1$, then 2 decimals. Always in USD.
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = "USD"
+        formatter.minimumFractionDigits = amount < 0.01 ? 4 : 2
+        formatter.maximumFractionDigits = amount < 0.01 ? 4 : 2
+        return formatter.string(from: NSNumber(value: amount)) ?? "$\(amount)"
+    }
+
+    private func colorFor(_ kind: CostEntry.Kind) -> Color {
+        switch kind {
+        case .transcribe: return .blue
+        case .rewrite:    return .green
+        case .translate:  return .orange
+        }
+    }
+}
+
+extension CostEntry.Kind {
+    var germanLabel: String {
+        switch self {
+        case .transcribe: return "Transkribe"
+        case .rewrite:    return "Umformulie"
+        case .translate:  return "Übersetzung"
+        }
+    }
+}
+
+extension CostEntry {
+    var usageDescription: String {
+        if let audio = audioSeconds {
+            return String(format: "%.1fs Audio", audio)
+        }
+        if let p = promptTokens, let c = completionTokens {
+            return "\(p + c) Tokens"
+        }
+        return ""
     }
 }
 
@@ -818,10 +1134,8 @@ struct OnboardingView: View {
     }
 
     private var canAdvance: Bool {
-        switch step {
-        case 1: return !coordinator.apiKey.isEmpty
-        default: return true
-        }
+        // API-Key ist optional. Kein erzwungenes Blockieren mehr.
+        true
     }
 
     // Pages
@@ -832,17 +1146,17 @@ struct OnboardingView: View {
             Text("Willkommen bei ALVA-TEXT")
                 .font(.title2)
                 .bold()
-            Text("In vier Schritten ist die App einsatzbereit:")
+            Text("ALVA funktioniert direkt nach der Installation — mit lokaler Transkription, ohne Internet, ohne API-Schlüssel. Optional kannst du später OpenAI einschalten, um Umformulierungen und Übersetzungen zu nutzen.")
                 .foregroundStyle(.secondary)
 
             VStack(alignment: .leading, spacing: 10) {
-                bullet(number: 1, text: "OpenAI-API-Schlüssel eintragen.")
-                bullet(number: 2, text: "Bedienungshilfen freigeben (für das automatische Einfügen).")
-                bullet(number: 3, text: "Eingabeüberwachung freigeben (für Sprach-F-Tasten und Rückwärtsübersetzung).")
+                bullet(number: 1, text: "OpenAI-Schlüssel (optional) — nur für Höflich, Nachricht und Sprach-Übersetzung.")
+                bullet(number: 2, text: "Bedienungshilfen freigeben — für das automatische Einfügen.")
+                bullet(number: 3, text: "Eingabeüberwachung freigeben — für Sprach-F-Tasten und Rückwärtsübersetzung.")
             }
             .padding(.top, 4)
 
-            Text("Danach kannst du loslegen: Control gedrückt halten und diktieren → sauberes Transkript. Option → höfliche Umformulierung. Command → lockerer Chat-Stil.")
+            Text("Sofort nutzbar: Control gedrückt halten und diktieren → sauberes Transkript auf Deutsch.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .padding(.top, 8)
@@ -852,22 +1166,45 @@ struct OnboardingView: View {
     @ViewBuilder
     private var apiKeyPage: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Schritt 1 — OpenAI-Schlüssel")
+            Text("OpenAI-Schlüssel")
                 .font(.title2)
                 .bold()
-            Text("ALVA-TEXT nutzt Whisper (Transkription) und GPT-4o-mini (Umformulierung/Übersetzung). Du brauchst einen eigenen API-Schlüssel von platform.openai.com — der Schlüssel wird lokal im macOS-Schlüsselbund gespeichert.")
+            HStack(spacing: 6) {
+                Image(systemName: "info.circle")
+                Text("Optional — du kannst diesen Schritt überspringen.")
+            }
+            .font(.callout)
+            .foregroundStyle(.secondary)
+
+            Text("Der Standard-Modus (reines Transkript auf Deutsch) funktioniert lokal und benötigt keinen Schlüssel. Für folgende Funktionen wird ein OpenAI-Schlüssel benötigt:")
                 .foregroundStyle(.secondary)
 
-            SecureField("sk-…", text: $coordinator.apiKey)
+            VStack(alignment: .leading, spacing: 6) {
+                bullet(number: 1, text: "Höflich-Modus (umformulierte E-Mails)")
+                bullet(number: 2, text: "Nachricht-Modus (adaptiver Chat-Stil)")
+                bullet(number: 3, text: "Sprach-Übersetzung via F-Tasten (EN/FR/IT/…)")
+                bullet(number: 4, text: "Rückwärtsübersetzung fremdsprachiger Texte")
+            }
+            .padding(.vertical, 2)
+
+            Text("Den Schlüssel gibt es auf platform.openai.com. Er wird ausschließlich im macOS-Schlüsselbund gespeichert.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 4)
+
+            SecureField("sk-… (leer lassen für Lokalbetrieb)", text: $coordinator.apiKey)
                 .textFieldStyle(.roundedBorder)
                 .padding(.top, 4)
 
             if coordinator.apiKey.isEmpty {
-                Label("Ohne Schlüssel kann ALVA keine Transkription durchführen.", systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
+                Label("Kein Schlüssel gespeichert — nur Standard-Modus aktiv.",
+                      systemImage: "info.circle.fill")
+                    .foregroundStyle(.blue)
                     .font(.caption)
             } else {
-                Label("Schlüssel gespeichert.", systemImage: "checkmark.circle.fill")
+                Label("Schlüssel gespeichert — alle Features freigeschaltet.",
+                      systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
                     .font(.caption)
             }
@@ -878,10 +1215,10 @@ struct OnboardingView: View {
     private var accessibilityPage: some View {
         let trusted = coordinator.isAccessibilityTrusted()
         VStack(alignment: .leading, spacing: 12) {
-            Text("Schritt 2 — Bedienungshilfen")
+            Text("Bedienungshilfen")
                 .font(.title2)
                 .bold()
-            Text("Für das automatische Einfügen in die fokussierte App simuliert ALVA ⌘V. Das braucht die Berechtigung \"Bedienungshilfen\".")
+            Text("Für das automatische Einfügen in die fokussierte App simuliert ALVA ⌘V. Das erfordert die Berechtigung Bedienungshilfen.")
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 10) {
@@ -893,14 +1230,24 @@ struct OnboardingView: View {
             }
             .id(accessibilityTick)
 
+            if !trusted {
+                permissionSteps(steps: [
+                    "Auf „Erlaubnis erteilen\" klicken — Systemeinstellungen öffnen sich bei „Bedienungshilfen\".",
+                    "In der Liste ALVA-TEXT finden und den Schalter rechts aktivieren.",
+                    "Falls ALVA-TEXT nicht in der Liste steht: unten auf „+\" klicken und im Finder ALVA-TEXT.app auswählen.",
+                    "Zurück zu diesem Fenster → „Erneut prüfen\" → Ampel wird grün."
+                ])
+            }
+
             HStack {
-                Button("Systemdialog anzeigen") {
-                    coordinator.requestAccessibilityPrompt()
+                Button(trusted ? "Systemeinstellungen öffnen" : "Erlaubnis erteilen") {
+                    if !trusted {
+                        coordinator.requestAccessibilityPrompt()
+                    }
+                    coordinator.openAccessibilitySettings()
                     accessibilityTick &+= 1
                 }
-                Button("Systemeinstellungen öffnen") {
-                    coordinator.openAccessibilitySettings()
-                }
+                .buttonStyle(.borderedProminent)
                 Button("Erneut prüfen") {
                     accessibilityTick &+= 1
                 }
@@ -913,10 +1260,10 @@ struct OnboardingView: View {
     private var inputMonitoringPage: some View {
         let trusted = coordinator.isInputMonitoringTrusted()
         VStack(alignment: .leading, spacing: 12) {
-            Text("Schritt 3 — Eingabeüberwachung")
+            Text("Eingabeüberwachung")
                 .font(.title2)
                 .bold()
-            Text("Für Sprach-F-Tasten während der Aufnahme und für die Rückwärtsübersetzung muss ALVA Tastaturereignisse anderer Apps mitlesen. Das braucht die Berechtigung \"Eingabeüberwachung\".")
+            Text("Für Sprach-F-Tasten während der Aufnahme und für die Rückwärtsübersetzung muss ALVA Tastaturereignisse anderer Apps mitlesen. Das erfordert die Berechtigung Eingabeüberwachung.")
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 10) {
@@ -928,25 +1275,60 @@ struct OnboardingView: View {
             }
             .id(inputMonitoringTick)
 
+            if !trusted {
+                permissionSteps(steps: [
+                    "Auf „Systemeinstellungen öffnen\" klicken — landet bei „Eingabeüberwachung\".",
+                    "Unten auf „+\" klicken, im Finder ALVA-TEXT.app auswählen und hinzufügen.",
+                    "Schalter rechts neben ALVA-TEXT aktivieren.",
+                    "macOS fragt eventuell, ob die App neu gestartet werden soll → bestätigen.",
+                    "Zurück zu diesem Fenster → „Erneut prüfen\" → Ampel wird grün."
+                ])
+            }
+
             HStack {
-                Button("Systemdialog anzeigen") {
-                    coordinator.requestInputMonitoringPrompt()
-                    inputMonitoringTick &+= 1
-                }
                 Button("Systemeinstellungen öffnen") {
                     coordinator.openInputMonitoringSettings()
                 }
+                .buttonStyle(.borderedProminent)
                 Button("Erneut prüfen") {
                     inputMonitoringTick &+= 1
                 }
             }
             .buttonStyle(.bordered)
 
-            Text("Wenn die Ampel nach dem Freigeben in den Systemeinstellungen nicht sofort grün wird: ALVA-TEXT einmal beenden und neu starten.")
+            Text("Hinweis: Nach dem Aktivieren in den Systemeinstellungen muss ALVA-TEXT einmal beendet und neu gestartet werden. Bei Dev-Builds (aus Xcode) kann es nötig sein, einen bereits vorhandenen alten ALVA-TEXT-Eintrag per „−\" zu entfernen und neu hinzuzufügen.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.top, 4)
         }
+    }
+
+    @ViewBuilder
+    private func permissionSteps(steps: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("So geht's:")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+            ForEach(Array(steps.enumerated()), id: \.offset) { idx, text in
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "\(idx + 1).circle.fill")
+                        .foregroundStyle(.blue)
+                    Text(text)
+                        .font(.caption)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.blue.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+        )
     }
 
     private func bullet(number: Int, text: String) -> some View {
