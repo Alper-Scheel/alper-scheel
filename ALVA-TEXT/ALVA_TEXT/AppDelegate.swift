@@ -9,6 +9,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         terminateOlderInstances()
 
+        // Clean up obsolete UserDefaults keys from when the reverse-
+        // translate hotkey was user-configurable. Now fixed to ⌃⌥⌘L.
+        AppCoordinator.migrateReverseTranslateDefaults()
+
         NSApp.setActivationPolicy(.accessory)
         coordinator.requestPermissions()
 

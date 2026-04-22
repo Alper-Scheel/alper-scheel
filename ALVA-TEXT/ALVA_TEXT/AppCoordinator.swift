@@ -225,35 +225,34 @@ final class AppCoordinator: ObservableObject {
     }
 
     // MARK: - Reverse-Translate hotkey config
+    //
+    // The shortcut is HARDCODED to ⌃⌥⌘L ("L" for Language). Triple-modifier
+    // combos are the only ones guaranteed to pass through every macOS app
+    // including Word, Excel, Keynote, Mail, Safari, Finder — two-modifier
+    // combos (⌃⌥Return, ⌥⇧Return, …) get swallowed by app-level bindings
+    // (Word's context menu, browser line-breaks, etc.). There is no UI to
+    // reconfigure this; the only user-facing control is the on/off switch.
 
     @Published var reverseTranslateEnabled: Bool = UserDefaults.standard.object(forKey: "reverseTranslateEnabled") as? Bool ?? true {
         didSet { UserDefaults.standard.set(reverseTranslateEnabled, forKey: "reverseTranslateEnabled") }
     }
 
-    @Published var reverseTranslateModifiers: HotkeyConfig = AppCoordinator.loadHotkey(
-        key: "reverseTranslateModifiers",
-        fallback: HotkeyConfig(command: false, option: true, control: true, shift: false)  // default ⌃⌥
-    ) {
-        didSet { AppCoordinator.saveHotkey(reverseTranslateModifiers, key: "reverseTranslateModifiers") }
-    }
+    /// Fixed modifier set: ⌃⌥⌘.
+    let reverseTranslateModifiers = HotkeyConfig(
+        command: true, option: true, control: true, shift: false
+    )
 
-    /// Default trigger is Return (kVK_Return = 36). Works identically on
-    /// every keyboard layout (US, DE, FR, …) and doesn't collide with
-    /// common macOS shortcuts. Users with other preferences can pick from
-    /// the `TriggerKeyCatalog` in Settings.
-    @Published var reverseTranslateKeyCode: UInt16 = {
-        if let raw = UserDefaults.standard.object(forKey: "reverseTranslateKeyCode") as? Int {
-            return UInt16(raw)
-        }
-        return 36 // kVK_Return
-    }() {
-        didSet { UserDefaults.standard.set(Int(reverseTranslateKeyCode), forKey: "reverseTranslateKeyCode") }
-    }
+    /// Fixed trigger key: kVK_ANSI_L (37). Same physical position on US
+    /// (QWERTY) and German (QWERTZ) keyboards — the "L" key.
+    let reverseTranslateKeyCode: UInt16 = 37
 
-    func resetReverseTranslateDefaults() {
-        reverseTranslateEnabled = true
-        reverseTranslateModifiers = HotkeyConfig(command: false, option: true, control: true, shift: false)
-        reverseTranslateKeyCode = 36 // Return
+    /// One-time cleanup: earlier builds persisted `reverseTranslateModifiers`
+    /// and `reverseTranslateKeyCode` in UserDefaults so users could remap
+    /// the hotkey. That config is now stale; we remove the keys so nothing
+    /// weird happens if we ever re-introduce them.
+    static func migrateReverseTranslateDefaults() {
+        UserDefaults.standard.removeObject(forKey: "reverseTranslateModifiers")
+        UserDefaults.standard.removeObject(forKey: "reverseTranslateKeyCode")
     }
 
     // MARK: - Launch at login (macOS 13+ SMAppService)
@@ -1179,6 +1178,15 @@ extension AppCoordinator {
 
     private func showReverseTranslatePopup(originalChunks: [LanguageChunk], translated: String) {
         print("ALVA reverseTranslate: showing popup with \(originalChunks.count) chunks, \(translated.count) chars translated")
+
+        // STEP 1 — Flip to regular activation BEFORE creating the window.
+        // Accessory apps (LSUIElement=true) can't reliably make a window key
+        // if it was created while the app was still .accessory. The
+        // onboarding/settings flows do this first-thing too.
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+
+        // STEP 2 — Build the SwiftUI view + hosting controller.
         let view = ReverseTranslatePopup(
             originalChunks: originalChunks,
             translated: translated,
@@ -1190,23 +1198,46 @@ extension AppCoordinator {
         let host = NSHostingController(rootView: view)
         host.sizingOptions = [.preferredContentSize]
 
-        let window = NSWindow(contentViewController: host)
-        // Title bar is suppressed but the style mask still includes .titled
-        // so the window can become key and respond to Escape.
-        window.styleMask = [.titled, .resizable, .fullSizeContentView]
+        // STEP 3 — Build the window in "lightbox" style: no visible title
+        // bar, no traffic lights, slim padding. Escape closes (handled in
+        // SwiftUI via `.onExitCommand`). `.titled` stays in the style mask
+        // so the window can become key — without `.titled`, SwiftUI's
+        // exit-command handler never receives the event. We just hide all
+        // title-bar affordances visually.
+        let contentSize = NSSize(width: 520, height: 360)
+        let window = NSWindow(
+            contentRect: NSRect(origin: .zero, size: contentSize),
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentViewController = host
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
         window.standardWindowButton(.closeButton)?.isHidden = true
         window.standardWindowButton(.miniaturizeButton)?.isHidden = true
         window.standardWindowButton(.zoomButton)?.isHidden = true
-        window.setContentSize(NSSize(width: 560, height: 440))
-        window.center()
+        window.isReleasedWhenClosed = false
         window.level = .floating
         window.collectionBehavior = [.moveToActiveSpace]
         window.hidesOnDeactivate = false
-        window.isReleasedWhenClosed = false
-        // Auto-reset activation policy when popup closes.
+
+        // Center on whichever screen is currently active (main screen's
+        // visibleFrame, not frame — excludes menu bar and Dock).
+        if let screen = NSScreen.main {
+            let visible = screen.visibleFrame
+            let origin = NSPoint(
+                x: visible.midX - contentSize.width / 2,
+                y: visible.midY - contentSize.height / 2
+            )
+            window.setFrame(
+                NSRect(origin: origin, size: contentSize),
+                display: true
+            )
+        }
+
+        // Auto-reset activation policy to .accessory when popup closes.
         NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification,
             object: window,
@@ -1217,15 +1248,28 @@ extension AppCoordinator {
             }
         }
 
+        // Click-outside-to-close: if the user clicks anywhere else (other
+        // app, desktop, our own menu-bar icon), the popup loses key status
+        // → we close it. This is the expected UX for a lightbox.
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didResignKeyNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.reverseTranslateWindowController?.close()
+                self?.reverseTranslateWindowController = nil
+            }
+        }
+
+        // STEP 4 — Show & surface.
         reverseTranslateWindowController = NSWindowController(window: window)
-        // Accessory apps can't make a window key reliably — flip to .regular
-        // for the popup's lifetime, same trick as onboarding/settings.
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
         reverseTranslateWindowController?.showWindow(nil)
-        reverseTranslateWindowController?.window?.makeKeyAndOrderFront(nil)
-        reverseTranslateWindowController?.window?.orderFrontRegardless()
-        print("ALVA reverseTranslate: popup visible=\(reverseTranslateWindowController?.window?.isVisible ?? false)")
+        window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
+
+        let screenFrame = NSScreen.main?.frame ?? .zero
+        print("ALVA reverseTranslate: popup visible=\(window.isVisible) frame=\(window.frame) screen=\(screenFrame)")
     }
 }
 

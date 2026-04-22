@@ -391,8 +391,8 @@ private struct ReverseTranslateCard: View {
              accent: .purple) {
 
             HStack(alignment: .top, spacing: 16) {
-                // Big live preview of the configured combo
-                Text(currentComboPreview)
+                // Fixed shortcut preview: ⌃⌥⌘L — not configurable.
+                Text("⌃⌥⌘\u{2009}L")
                     .font(.system(size: 24, weight: .medium, design: .rounded))
                     .frame(minWidth: 150, minHeight: 56)
                     .padding(.horizontal, 14)
@@ -407,7 +407,7 @@ private struct ReverseTranslateCard: View {
                     .foregroundStyle(coordinator.reverseTranslateEnabled ? .primary : .secondary)
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Text in einer beliebigen App markieren, dann die eingestellte Kombination drücken. ALVA kopiert die Auswahl, übersetzt sie ins Deutsche und zeigt das Ergebnis in einem Popup mit Kopieren-Button. Die Zwischenablage wird danach wieder auf ihren ursprünglichen Inhalt zurückgesetzt.")
+                    Text("Text in einer beliebigen App markieren, dann **⌃⌥⌘L** drücken. ALVA kopiert die Auswahl, übersetzt sie ins Deutsche und zeigt das Ergebnis in einem Popup mit Kopieren-Button. Die Zwischenablage wird danach wieder auf ihren ursprünglichen Inhalt zurückgesetzt.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -419,51 +419,11 @@ private struct ReverseTranslateCard: View {
 
             Toggle("Rückwärtsübersetzung aktivieren", isOn: $coordinator.reverseTranslateEnabled)
 
-            HStack(spacing: 18) {
-                Toggle("⌃ Control", isOn: $coordinator.reverseTranslateModifiers.control)
-                Toggle("⌥ Option", isOn: $coordinator.reverseTranslateModifiers.option)
-                Toggle("⇧ Shift", isOn: $coordinator.reverseTranslateModifiers.shift)
-                Toggle("⌘ Command", isOn: $coordinator.reverseTranslateModifiers.command)
-            }
-            .toggleStyle(.checkbox)
-            .disabled(!coordinator.reverseTranslateEnabled)
-
-            HStack {
-                Text("Taste")
-                    .foregroundStyle(.secondary)
-                Picker("", selection: $coordinator.reverseTranslateKeyCode) {
-                    ForEach(TriggerKeyCatalog.options, id: \.code) { opt in
-                        Text(opt.label).tag(opt.code)
-                    }
-                }
-                .labelsHidden()
-                .frame(maxWidth: 260)
-                Spacer()
-                Button("Zurücksetzen") {
-                    coordinator.resetReverseTranslateDefaults()
-                }
-            }
-            .disabled(!coordinator.reverseTranslateEnabled)
-
-            if !coordinator.reverseTranslateModifiers.isValid {
-                Label("Die Kombination braucht mindestens einen Modifier — sonst löst sie nicht aus.",
-                      systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
-                    .font(.caption)
-            }
-
-            Text("Hinweis: ⌃⌥Leertaste ist bei macOS systemweit für die Eingabequellen-Umschaltung reserviert und funktioniert daher oft nicht. Der Schrägstrich „/\" ist die ergonomische Standardempfehlung.")
+            Text("Das Kürzel ist fest auf ⌃⌥⌘L gelegt (L wie Language). Drei Modifier zusammen sind die einzige Kombination, die garantiert in allen Apps funktioniert — auch in Word, Excel, Keynote und Mail, wo einfachere Kürzel wie ⌃⌥Return oder ⌥⇧Return von App-eigenen Bindings (Kontextmenü, Zeilenumbruch) geschluckt werden.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-    }
-
-    private var currentComboPreview: String {
-        let mods = coordinator.reverseTranslateModifiers.displaySymbols
-        let key  = TriggerKeyCatalog.label(for: coordinator.reverseTranslateKeyCode)
-        if mods == "—" { return "—" }
-        return "\(mods)\u{2009}\(key)"
     }
 }
 
@@ -1023,46 +983,46 @@ struct ReverseTranslatePopup: View {
     let onClose: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            // Header: just "ALVA-TEXT", nothing else
-            HStack {
-                Text("ALVA-TEXT")
-                    .font(.headline)
-                Spacer()
-            }
-            .padding(.top, 2)
-
-            // Original split by detected language
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(originalChunks) { chunk in
-                        LanguageBlock(
-                            label: chunk.displayName,
-                            text: chunk.text,
-                            accent: .blue
-                        )
-                    }
-
-                    Divider().padding(.vertical, 2)
-
+        ScrollView {
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(originalChunks) { chunk in
                     LanguageBlock(
-                        label: "Deutsch",
-                        text: translated,
-                        accent: .green
+                        label: chunk.displayName,
+                        text: chunk.text,
+                        accent: .blue
                     )
                 }
+
+                if !originalChunks.isEmpty {
+                    Divider().padding(.vertical, 1)
+                }
+
+                LanguageBlock(
+                    label: "Deutsch",
+                    text: translated,
+                    accent: .green
+                )
             }
+            .padding(14)
         }
-        .padding(18)
-        .frame(minWidth: 520, idealWidth: 560, maxWidth: 800,
-               minHeight: 300, idealHeight: 440, maxHeight: 700)
+        .frame(minWidth: 440, idealWidth: 520, maxWidth: 760,
+               minHeight: 220, idealHeight: 360, maxHeight: 680)
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color(nsColor: .windowBackgroundColor))
         )
-        .onExitCommand {
-            onClose()
-        }
+        // Dedicated Escape-to-close binding. `.onExitCommand` only fires
+        // when the SwiftUI hierarchy owns first responder, which isn't
+        // reliable inside a borderless/fullSizeContentView NSWindow. A
+        // zero-sized Button with an explicit keyboard shortcut is always
+        // active in the window's responder chain.
+        .background(
+            Button(action: onClose) { EmptyView() }
+                .frame(width: 0, height: 0)
+                .opacity(0)
+                .keyboardShortcut(.escape, modifiers: [])
+                .accessibilityHidden(true)
+        )
     }
 }
 

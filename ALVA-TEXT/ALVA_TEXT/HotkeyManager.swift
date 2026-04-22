@@ -161,29 +161,60 @@ extension LanguageCatalog {
 }
 
 /// Curated catalog of "trigger keys" the user can pick for the
-/// reverse-translate hotkey. Labels are the PHYSICAL key position that
-/// works on both US and German keyboards. Letters are last resort.
+/// reverse-translate hotkey. These are the keys that are GUARANTEED
+/// safe under the mandatory ⌃⌥⌘(⇧) triple-/quadruple-modifier combo:
+/// no conflict with macOS system shortcuts, Office (Word/Excel/PPT),
+/// Safari, Chrome, Mail, Finder or Notes on either US or DE keyboards.
+///
+/// Excluded on purpose:
+///   - Q: `⌘Q` = Quit; some apps still intercept `⌃⌥⌘Q` too.
+///   - Return, Space, Tab, Escape, Backspace, Period, Comma:
+///     these are "action keys" that many apps (especially Office) trap
+///     for line-break, context menu, field navigation, even under
+///     triple-modifier combos.
+///   - Digits 0-9: common binding for tab / window switching.
+///
+/// Labels reflect the GERMAN QWERTZ layout (primary user base). The
+/// physical key position differs from US only for Y and Z, which are
+/// swapped: keycode 6 = physical "Y" on DE, keycode 16 = physical "Z".
 enum TriggerKeyCatalog {
-    /// Pairs of (virtual keycode, user-facing label).
     static let options: [(code: UInt16, label: String)] = [
-        (36, "Return / Enter"),        // kVK_Return
-        (49, "Leertaste"),             // kVK_Space (konfliktet mit macOS ⌃⌥Space)
-        (47, ". (Punkt)"),             // kVK_ANSI_Period — identische Position DE/US
-        (43, ", (Komma)"),             // kVK_ANSI_Comma — identische Position DE/US
-        (51, "Löschen (Backspace)"),   // kVK_Delete
-        (48, "Tabulator"),             // kVK_Tab
-        // Letters – meist ergonomisch, aber achte auf App-Shortcuts
-        (2,  "D"),   // kVK_ANSI_D
-        (17, "T"),   // kVK_ANSI_T
-        (16, "Y"),   // kVK_ANSI_Y — auf DE = Z
-        (32, "U"),   // kVK_ANSI_U
-        (4,  "H"),   // kVK_ANSI_H
-        (38, "J"),   // kVK_ANSI_J
-        (40, "K"),   // kVK_ANSI_K
+        (0,  "A"),
+        (11, "B"),
+        (8,  "C"),
+        (2,  "D"),
+        (14, "E"),
+        (3,  "F"),
+        (5,  "G"),
+        (4,  "H"),
+        (34, "I"),
+        (38, "J"),
+        (40, "K"),
+        (37, "L"),
+        (46, "M"),
+        (45, "N"),
+        (31, "O"),
+        (35, "P"),
+        (15, "R"),
+        (1,  "S"),
+        (17, "T"),
+        (32, "U"),
+        (9,  "V"),
+        (13, "W"),
+        (7,  "X"),
+        (6,  "Y"),
+        (16, "Z")
     ]
 
     static func label(for code: UInt16) -> String {
         options.first(where: { $0.code == code })?.label ?? "?"
+    }
+
+    /// True if the given keycode is in the whitelist of safe triggers.
+    /// Used by the migration step in `AppCoordinator` to upgrade stale
+    /// user configs from prior builds (e.g. Return, Space).
+    static func isSafeKeyCode(_ code: UInt16) -> Bool {
+        options.contains(where: { $0.code == code })
     }
 }
 
