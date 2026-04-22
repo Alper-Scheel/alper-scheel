@@ -27,7 +27,7 @@
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.productivity</string>
     <key>NSHumanReadableCopyright</key>
-    <string>© 2026 Alper Scheel. Alle Rechte vorbehalten.</string>
+    <string>© 2026 AdLuna GmbH. Alle Rechte vorbehalten.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>ALVA-TEXT nimmt dein Diktat auf, während du einen Hotkey gedrückt hältst, und wandelt es per Whisper-API in Text um. Kein Dauermithören, nur während aktiver Aufnahme.</string>
     <key>NSAccessibilityUsageDescription</key>

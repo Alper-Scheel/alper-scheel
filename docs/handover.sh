@@ -20,7 +20,7 @@ set -euo pipefail
 # ---- Konfiguration ----
 REPO_ROOT="${REPO_ROOT:-$HOME/codex-work/alper-scheel}"
 BRANCH="alva-fixes-live"
-BACKUP_HOST="ms512@100.101.8.27"
+BACKUP_HOST="alper@100.101.8.27"
 BACKUP_PATH="~/backups/alper-scheel"
 
 cyan()   { printf "\033[0;36m%s\033[0m\n" "$*"; }

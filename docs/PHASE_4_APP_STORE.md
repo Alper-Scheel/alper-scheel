@@ -43,19 +43,17 @@
 
 ### 2. Bundle-ID prüfen und ggf. ändern (2 Minuten)
 
-Aktuell: `com.alva.text`
+Aktuell (ab 22.04.2026): `com.adserica.alvatext` — gehalten von
+**AdSerica Ltd. (Hong Kong)**. Die Bundle-ID ist in `project.pbxproj`
+bereits gesetzt, `KeychainStore.swift` verwendet denselben String als
+Keychain-Service-Name, und Info.plist trägt AdSerica als Copyright-
+Inhaber. Nichts manuell in Xcode zu ändern.
 
-**Empfehlung:** Ändern zu etwas wie `com.alperscheel.alva-text` oder
-`de.alperscheel.alvatext` — Bundle-IDs sollten deine verifizierte Domain
-als Präfix haben (nicht `com.alva.text`, was wie eine generische ID
-aussieht).
-
-In Xcode: **Signing & Capabilities** → **Bundle Identifier** → ändern.
-
-⚠️ Wenn du die Bundle-ID änderst, passe auch an:
-- `ALVA-TEXT/ALVA_TEXT/KeychainStore.swift` — Konstante `service =
-  "com.alva.text"` → neue ID
-- Alle `tccutil reset` Befehle im Reset-Skript → neue ID verwenden
+Hintergrund: Das geistige Eigentum an ALVA-TEXT soll bei AdSerica Ltd.
+liegen (IP-Holding, gehört Alper + Tobias). Der Apple Developer Account
+kann vorübergehend der bestehende Org-Account sein; der Umzug auf einen
+eigenen AdSerica-Developer-Account erfolgt über Gleis 2 (siehe
+SESSION_STATUS.md → Phase 4).
 
 ### 3. App-ID im Apple Developer Portal registrieren (5 Minuten)
 

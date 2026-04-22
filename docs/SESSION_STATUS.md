@@ -109,8 +109,8 @@ Alles fertig und im Branch `alva-fixes-live`:
 ### Phase 4 — App-Store-Ready (höchste Priorität, nächste Session)
 
 - Apple-Developer-Account-Setup validieren
-- Bundle-ID in App-Store-Connect registrieren (`com.alva.text` oder
-  `com.alperscheel.alvatext`)
+- Bundle-ID in App-Store-Connect registrieren: `com.adserica.alvatext`
+  (gehalten von AdSerica Ltd. Hong Kong)
 - Entitlements auf Sandbox umstellen (aktuell `sandbox=false` nur für
   TestFlight-Interne-Tests), Device-Audio-Input, Apple-Events
 - Hardened Runtime aktivieren
@@ -206,6 +206,7 @@ Diese Choreografie entfällt in Phase 4 mit Developer-ID-Signing.
 - **Lokaler Pfad (Mac)**: `~/codex-work/alper-scheel`
 - **Mac-Backup-Ziel**: `ms512@100.101.8.27:~/backups/alper-scheel/`
 - **Xcode-Projekt**: `ALVA-TEXT/ALVA_TEXT.xcodeproj`
-- **Bundle-ID (aktuell)**: `com.alva.text`
+- **Bundle-ID (aktuell)**: `com.adserica.alvatext`
+- **Herausgeber / Copyright**: AdSerica Ltd. (Hong Kong)
 - **macOS-Target**: 15.0
 - **Swift-Version**: 5.0 (Xcode 16)

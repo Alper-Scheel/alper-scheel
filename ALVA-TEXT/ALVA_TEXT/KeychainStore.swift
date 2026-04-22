@@ -6,7 +6,10 @@ import Security
 /// the secret is no longer written in cleartext to the app's preferences plist.
 enum KeychainStore {
     /// Service identifier used for every ALVA-TEXT Keychain item.
-    private static let service = "com.alva.text"
+    /// Must match the app's bundle identifier so Keychain access
+    /// remains scoped to this app. Keep in lockstep with any bundle-ID
+    /// rename in `project.pbxproj`.
+    private static let service = "com.adserica.alvatext"
 
     /// Writes (or deletes, when `value` is empty) the string for `account`.
     /// Uses `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` so the value
