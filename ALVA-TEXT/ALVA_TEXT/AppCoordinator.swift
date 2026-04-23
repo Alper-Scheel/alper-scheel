@@ -163,6 +163,14 @@ final class AppCoordinator: ObservableObject {
         didSet { UserDefaults.standard.set(rewriteEnabled, forKey: "rewriteEnabled") }
     }
 
+    /// Master-Switch aus dem Menu-Bar-Header. Wenn `true`, ignoriert der
+    /// Coordinator neue Hotkey-Trigger (Recording-Start, Reverse-Translate,
+    /// Sprachwechsel). Aktive Aufnahmen dürfen weiterlaufen und normal
+    /// beendet werden, damit der User kein Audio verliert.
+    @Published var isPaused: Bool = UserDefaults.standard.bool(forKey: "alva.isPaused") {
+        didSet { UserDefaults.standard.set(isPaused, forKey: "alva.isPaused") }
+    }
+
     // MARK: - Hotkey configuration
 
     @Published var standardHotkey: HotkeyConfig = AppCoordinator.loadHotkey(key: "standardHotkey", fallback: .defaultStandard) {
@@ -1043,18 +1051,24 @@ final class AppCoordinator: ObservableObject {
 
 extension AppCoordinator: HotkeyManagerDelegate {
     func hotkeyStart(mode: HotkeyMode) {
+        guard !isPaused else { return }
         beginRecording(mode: mode)
     }
 
     func hotkeyStop() {
+        // Stop is always allowed — if a recording is in progress, we must
+        // not leave the recorder running just because the user paused between
+        // key-down and key-up.
         endRecordingAndProcess()
     }
 
     func hotkeySelectLanguage(isoCode: String) {
+        guard !isPaused else { return }
         markCurrentRecordingLanguage(isoCode: isoCode)
     }
 
     func reverseTranslateRequested() {
+        guard !isPaused else { return }
         startReverseTranslate()
     }
 }

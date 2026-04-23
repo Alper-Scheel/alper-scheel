@@ -21,6 +21,9 @@ struct SettingsView: View {
 
             StatusTab()
                 .tabItem { Label("Status", systemImage: "waveform.badge.magnifyingglass") }
+
+            AccountTab()
+                .tabItem { Label("Account", systemImage: "person.crop.circle") }
         }
         .padding(16)
         .frame(minWidth: 680, minHeight: 600)
@@ -1552,6 +1555,256 @@ private struct LanguageBlock: View {
                 .padding(6)
                 .help(didCopy ? "Kopiert" : "Text kopieren")
             }
+        }
+    }
+}
+
+// MARK: - Account
+
+/// Zeigt den AdLuna-Lizenzstatus, ermöglicht Aktivierung/Abmeldung und
+/// einen manuellen Refresh. Trial-Countdown wird live aus `trialExpiresAt`
+/// gerechnet. Der Activation-Flow öffnet sich als Sheet.
+private struct AccountTab: View {
+    @StateObject private var license = LicenseState.shared
+    @State private var showActivation = false
+    @State private var isRefreshing = false
+    @State private var feedback: String?
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 14) {
+                statusCard
+                trialCard
+                actionsCard
+                avatarCard
+                infoCard
+            }
+            .padding(.horizontal, 2)
+            .padding(.vertical, 6)
+        }
+        .sheet(isPresented: $showActivation) {
+            ActivationView(state: license)
+        }
+    }
+
+    // MARK: Cards
+
+    private var statusCard: some View {
+        Card(title: "Lizenzstatus",
+             subtitle: subtitle,
+             icon: iconName,
+             accent: accentColor) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(statusHeadline)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(accentColor)
+                Spacer()
+                if case .active(_, let tier, _) = license.phase {
+                    tierBadge(tier: tier)
+                }
+            }
+
+            if let msg = currentMessage, !msg.isEmpty {
+                Text(msg)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let fb = feedback {
+                Label(fb, systemImage: "info.circle")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder private var trialCard: some View {
+        if let expires = license.trialExpiresAt, expires > .init() {
+            Card(title: "Testzeitraum", icon: "hourglass", accent: .blue) {
+                HStack {
+                    Text("Läuft ab")
+                    Spacer()
+                    Text(expires, format: .dateTime.day().month().year().hour().minute())
+                        .foregroundStyle(.secondary)
+                }
+                HStack {
+                    Text("Verbleibend")
+                    Spacer()
+                    Text(remainingTrial(until: expires))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private var actionsCard: some View {
+        Card(title: "Aktionen", icon: "bolt.fill", accent: .orange) {
+            HStack(spacing: 10) {
+                if LicenseClient.isActivated {
+                    Button {
+                        Task { await doRefresh() }
+                    } label: {
+                        Label(isRefreshing ? "Prüfe…" : "Jetzt prüfen",
+                              systemImage: "arrow.clockwise")
+                    }
+                    .disabled(isRefreshing)
+
+                    Button(role: .destructive) {
+                        license.signOut()
+                        feedback = "Abgemeldet. Device-Token lokal gelöscht."
+                    } label: {
+                        Label("Abmelden", systemImage: "rectangle.portrait.and.arrow.right")
+                    }
+                } else {
+                    Button {
+                        showActivation = true
+                    } label: {
+                        Label("Aktivieren", systemImage: "key.fill")
+                    }
+                    .keyboardShortcut(.defaultAction)
+                }
+
+                Spacer()
+            }
+        }
+    }
+
+    private var infoCard: some View {
+        Card(title: "Technische Details", icon: "info.circle", accent: .gray) {
+            VStack(alignment: .leading, spacing: 6) {
+                detailRow("API-Host", LicenseClient.baseURL.host ?? "—")
+                detailRow("Produkt", LicenseClient.productID)
+                detailRow("Gerätename", LicenseClient.deviceName)
+                detailRow("Gerät-UUID", String(LicenseClient.deviceUUID().prefix(8)) + "…")
+                if let last = license.lastCheck {
+                    detailRow("Letzter Check", last.formatted(date: .abbreviated, time: .shortened))
+                }
+                detailRow("App-Version", LicenseClient.appVersion)
+            }
+        }
+    }
+
+    @ViewBuilder private var avatarCard: some View {
+        if license.currentEmail != nil {
+            Card(title: "Profilbild", icon: "person.crop.square", accent: .purple) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Dein Avatar im Menü kommt von **Gravatar** — einem weltweiten, kostenlosen Avatar-Dienst, der dein Bild mit deiner E-Mail verknüpft. Aktuell wird ein automatisch generiertes Muster (Identicon) angezeigt, weil für diese E-Mail kein Gravatar hinterlegt ist.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Link("Eigenes Bild bei gravatar.com einrichten",
+                         destination: URL(string: "https://gravatar.com")!)
+                        .font(.callout)
+                }
+            }
+        }
+    }
+
+    // MARK: Helpers
+
+    private var statusHeadline: String {
+        switch license.phase {
+        case .loading:         return "Wird geprüft…"
+        case .needsActivation: return "Nicht aktiviert"
+        case .active(let status, _, _):
+            switch status {
+            case "beta":   return "Beta aktiv"
+            case "trial":  return "Testzeitraum aktiv"
+            case "active": return "Lizenz aktiv"
+            default:       return status.capitalized
+            }
+        case .expired:         return "Testzeitraum abgelaufen"
+        case .revoked:         return "Zugang widerrufen"
+        case .error(let msg):  return "Fehler: \(msg)"
+        }
+    }
+
+    private var subtitle: String {
+        switch license.phase {
+        case .loading:         return "Status wird geladen"
+        case .needsActivation: return "Mit deiner E-Mail freischalten"
+        case .active(_, _, _): return "AdLuna Platform"
+        case .expired:         return "Bitte Lizenz erwerben"
+        case .revoked:         return "Support kontaktieren"
+        case .error:           return "Verbindung prüfen"
+        }
+    }
+
+    private var iconName: String {
+        switch license.phase {
+        case .active:          return "checkmark.seal.fill"
+        case .loading:         return "clock.arrow.circlepath"
+        case .needsActivation: return "key"
+        case .expired:         return "exclamationmark.triangle.fill"
+        case .revoked:         return "xmark.seal.fill"
+        case .error:           return "wifi.slash"
+        }
+    }
+
+    private var accentColor: Color {
+        switch license.phase {
+        case .active(_, .full, _), .active(_, .paid, _): return .green
+        case .active(_, .limited, _):                    return .yellow
+        case .loading:                                   return .blue
+        case .needsActivation:                           return .accentColor
+        case .expired, .error:                           return .orange
+        case .revoked:                                   return .red
+        }
+    }
+
+    private var currentMessage: String? {
+        if case .active(_, _, let msg) = license.phase { return msg }
+        if case .expired(let msg) = license.phase { return msg }
+        if case .revoked(let msg) = license.phase { return msg }
+        return nil
+    }
+
+    @ViewBuilder private func tierBadge(tier: LicenseState.Tier) -> some View {
+        let (label, color): (String, Color) = {
+            switch tier {
+            case .full:    return ("Voller Funktionsumfang", .green)
+            case .paid:    return ("Bezahlt", .green)
+            case .limited: return ("Eingeschränkt", .yellow)
+            }
+        }()
+        Text(label)
+            .font(.caption.weight(.medium))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(
+                Capsule().fill(color.opacity(0.18))
+            )
+            .overlay(Capsule().stroke(color.opacity(0.4), lineWidth: 1))
+            .foregroundStyle(color)
+    }
+
+    private func detailRow(_ label: String, _ value: String) -> some View {
+        HStack {
+            Text(label).foregroundStyle(.secondary)
+            Spacer()
+            Text(value).font(.callout.monospacedDigit())
+        }
+    }
+
+    private func remainingTrial(until end: Date) -> String {
+        let s = Int(end.timeIntervalSinceNow)
+        guard s > 0 else { return "abgelaufen" }
+        let days = s / 86400
+        let hours = (s % 86400) / 3600
+        if days > 0 { return "\(days) Tage, \(hours) Std." }
+        if hours > 0 { return "\(hours) Std." }
+        return "< 1 Std."
+    }
+
+    private func doRefresh() async {
+        isRefreshing = true
+        feedback = nil
+        await license.refresh()
+        isRefreshing = false
+        if case .error(let msg) = license.phase {
+            feedback = "Check fehlgeschlagen: \(msg)"
+        } else {
+            feedback = "Status aktualisiert."
         }
     }
 }

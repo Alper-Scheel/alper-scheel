@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import SwiftUI
 
 /// Menu-bar item with an animated template icon.
 ///
@@ -18,6 +19,11 @@ final class StatusMenuController: NSObject {
     /// Tag marker for the dynamic "language F-key quick-reference" section.
     /// Items carrying this tag get rebuilt every time the menu opens.
     private let languageSectionTag = 0xF00D
+    /// Hosting-Controller für den SwiftUI-Header (Avatar + Email + Toggle).
+    /// Bleibt für die Lebenszeit des Menus erhalten, damit SwiftUI-State
+    /// (z.B. geladenes Gravatar-Bild) nicht bei jedem Menu-Öffnen verloren geht.
+    private var headerHostingController: NSHostingController<MenuHeaderView>?
+    private var headerMenuItem: NSMenuItem?
 
     private var animationTimer: Timer?
     private var currentFrame: Int = 0
@@ -127,6 +133,12 @@ final class StatusMenuController: NSObject {
     // MARK: - Menu
 
     private func buildMenu() {
+        // 1) SwiftUI-Header (Avatar / Email / Aktiv-Toggle) als erstes Item.
+        installHeaderItem()
+
+        // 2) Separator zwischen Header und Hauptaktionen.
+        menu.addItem(.separator())
+
         let openSettings = NSMenuItem(title: "Einstellungen …", action: #selector(showSettings), keyEquivalent: ",")
         openSettings.target = self
         menu.addItem(openSettings)
@@ -151,6 +163,30 @@ final class StatusMenuController: NSObject {
         // is appended every time the menu opens, via NSMenuDelegate.
         menu.delegate = self
         statusItem.menu = menu
+    }
+
+    /// Baut den SwiftUI-Header (Avatar + Email + Aktiv-Toggle) als NSMenuItem
+    /// mit Custom-View. Der Hosting-Controller bleibt in `headerHostingController`
+    /// gehalten, damit SwiftUI-State erhalten bleibt.
+    private func installHeaderItem() {
+        let view = MenuHeaderView(
+            coordinator: coordinator,
+            license: LicenseState.shared,
+            onActivate: { [weak self] in
+                self?.coordinator.openSettings()
+            }
+        )
+        let host = NSHostingController(rootView: view)
+        // Pflicht-Size für Menu-Custom-Views: intrinsic ist nicht ausreichend.
+        host.view.frame = NSRect(x: 0, y: 0, width: 300, height: 58)
+        host.view.autoresizingMask = [.width]
+
+        let item = NSMenuItem()
+        item.view = host.view
+        menu.addItem(item)
+
+        self.headerHostingController = host
+        self.headerMenuItem = item
     }
 
     /// Removes every menu entry that was tagged as part of the language

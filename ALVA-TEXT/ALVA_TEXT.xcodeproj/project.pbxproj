@@ -21,6 +21,10 @@
 		A100000B0000000100000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A100010B0000000100000001 /* Assets.xcassets */; };
 		A100000C0000000100000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A100010C0000000100000001 /* PrivacyInfo.xcprivacy */; };
 		A100000E0000000100000001 /* LocalWhisperTranscriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100010E0000000100000001 /* LocalWhisperTranscriber.swift */; };
+		A10000110000000100000001 /* LicenseClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10001110000000100000001 /* LicenseClient.swift */; };
+		A10000120000000100000001 /* LicenseState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10001120000000100000001 /* LicenseState.swift */; };
+		A10000130000000100000001 /* ActivationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10001130000000100000001 /* ActivationView.swift */; };
+		A10000140000000100000001 /* MenuHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10001140000000100000001 /* MenuHeaderView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -40,6 +44,10 @@
 		A100010D0000000100000001 /* ALVA_TEXT.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ALVA_TEXT.entitlements; sourceTree = "<group>"; };
 		A100010E0000000100000001 /* LocalWhisperTranscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalWhisperTranscriber.swift; sourceTree = "<group>"; };
 		A10001100000000100000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A10001110000000100000001 /* LicenseClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseClient.swift; sourceTree = "<group>"; };
+		A10001120000000100000001 /* LicenseState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseState.swift; sourceTree = "<group>"; };
+		A10001130000000100000001 /* ActivationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivationView.swift; sourceTree = "<group>"; };
+		A10001140000000100000001 /* MenuHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuHeaderView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -76,6 +84,10 @@
 				A10001090000000100000001 /* SettingsView.swift */,
 				A100010A0000000100000001 /* KeychainStore.swift */,
 				A100010E0000000100000001 /* LocalWhisperTranscriber.swift */,
+				A10001110000000100000001 /* LicenseClient.swift */,
+				A10001120000000100000001 /* LicenseState.swift */,
+				A10001130000000100000001 /* ActivationView.swift */,
+				A10001140000000100000001 /* MenuHeaderView.swift */,
 				A100010B0000000100000001 /* Assets.xcassets */,
 				A100010C0000000100000001 /* PrivacyInfo.xcprivacy */,
 				A100010D0000000100000001 /* ALVA_TEXT.entitlements */,
@@ -176,6 +188,10 @@
 				A10000090000000100000001 /* SettingsView.swift in Sources */,
 				A100000A0000000100000001 /* KeychainStore.swift in Sources */,
 				A100000E0000000100000001 /* LocalWhisperTranscriber.swift in Sources */,
+				A10000110000000100000001 /* LicenseClient.swift in Sources */,
+				A10000120000000100000001 /* LicenseState.swift in Sources */,
+				A10000130000000100000001 /* ActivationView.swift in Sources */,
+				A10000140000000100000001 /* MenuHeaderView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

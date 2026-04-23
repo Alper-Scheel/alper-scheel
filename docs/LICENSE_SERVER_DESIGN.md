@@ -1,280 +1,324 @@
-# License-Server — Architektur & Implementierungsplan
+# AdLuna Platform API — Architektur & Implementierungsplan
 
-> **Produkt:** ALVA-TEXT (später auch ALVA-Plattform)
+> **Produkt:** Multi-Tenant-Lizenz- und Aktivierungsdienst für sämtliche AdLuna-Produkte (ALVA-TEXT, später ALVA-macOS, ALVA-Voice, weitere).
 > **Operativer Träger:** AdLuna GmbH (DE) — öffentlich sichtbar
 > **IP-Eigentümer:** AdSerica Ltd. (HK) — im Backend
 > **Host:** MS512 (100.101.8.27 via Tailscale; public via Cloudflare Tunnel an `api.adluna.de`)
-> **Stand:** 22. April 2026
+> **Stand:** 22. April 2026 (v2 — Multi-Tenant)
 
 ---
 
-## 1. Zielsetzung
+## 1. Warum Multi-Tenant von Tag eins
 
-Der License-Server ist die zentrale Steuerungsinstanz für:
+Der License-Server wird von Anfang an als **Plattform-API** gebaut, nicht als Einzelprodukt-Server. Begründung:
 
-1. **Aktivierung:** Ein Endnutzer darf ALVA-TEXT erst nutzen, nachdem er seine Email verifiziert und einen Aktivierungscode in die App eingegeben hat.
-2. **Kill-Switch:** Die App prüft täglich gegen den Server, ob ihre Lizenz noch gültig ist. Der Server kann jederzeit einzelne oder alle Clients auf `expired` schalten (z.B. zum Monetarisierungs-Start).
-3. **Tracking:** Der Server protokolliert jede Aktivierung (Email, Device-UUID, App-Version, Zeitpunkt), um die Nutzerbasis zu verstehen und Email-Kampagnen zu steuern.
-4. **Skalierung:** Derselbe Server bedient später die ALVA-iOS- und ALVA-macOS-Clients mit denselben Primitiven (Registrierung, Check, Device-Management).
+- **ALVA-TEXT ist nur der erste Tenant.** Das Ökosystem um ALVA wird mehrere Apple-Clients haben (ALVA-macOS, ALVA-Voice-iOS, evtl. ALVA-Watch) sowie perspektivisch weitere Standalone-Tools aus der AdLuna-Werkbank.
+- **Eine Infrastruktur, n Produkte.** Ein einziger FastAPI-Dienst, ein Datenmodell, ein Deployment, ein Monitoring. Jedes weitere Produkt ist nur ein neuer Eintrag in der `products`-Tabelle — kein zusätzlicher Server nötig.
+- **Cross-Product-Nutzer.** Ein Nutzer mit Email `alper@example.com` kann ALVA-TEXT bezahlt haben, gleichzeitig ALVA-Voice-Beta nutzen und später ALVA-macOS dazukaufen. Ein Konto, mehrere Lizenzen.
+- **Strategischer Hebel für Paddle-Integration.** Wenn später Paddle-Produkte angelegt werden, zeigt jedes auf `product_id` im License-Server. Cross-Sell und Upgrade-Pfade trivial umsetzbar.
+
+Der Mehraufwand gegenüber Single-Tenant ist minimal — eine zusätzliche Tabelle (`products`), ein `product`-Parameter in den Endpunkten, eine Product-ID im Device-Eintrag. Der langfristige Hebel ist enorm.
 
 ---
 
-## 2. Datenmodell (SQLite)
+## 2. Datenmodell (SQLite, später bei Skalierung → PostgreSQL)
 
 ```sql
+-- Produkte (wird beim Deployment mit Seed-Daten gefüllt)
+CREATE TABLE products (
+    id              TEXT PRIMARY KEY,              -- 'alva-text', 'alva-macos', 'alva-voice-ios'
+    name            TEXT NOT NULL,                 -- Nutzer-sichtbarer Name
+    slug            TEXT NOT NULL UNIQUE,          -- URL-safe, z.B. für /products/alva-text
+    default_trial_days INTEGER DEFAULT 14,
+    paddle_product_id TEXT,                        -- Paddle-Produkt-ID für Paywall
+    price_eur       DECIMAL(10,2),                 -- Brutto-Einmalpreis
+    active          INTEGER DEFAULT 1,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Nutzer (eindeutig über Email)
 CREATE TABLE users (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     email           TEXT NOT NULL UNIQUE,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    verified_at     TIMESTAMP,                        -- NULL bis Code eingegeben
-    allowlist_flag  INTEGER DEFAULT 0,                -- 1 = immer aktiv (Early-Adopter)
-    paid_flag       INTEGER DEFAULT 0,                -- 1 = hat bezahlt (Paddle-Webhook)
-    max_devices     INTEGER DEFAULT 2                 -- Gerätelimit pro Email
+    verified_at     TIMESTAMP,                     -- NULL bis erster Code eingelöst
+    notes           TEXT                           -- interne Notizen (Admin)
 );
 
+-- Aktivierungscodes (Einmal-Einträge, kurzlebig)
 CREATE TABLE activation_codes (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id         INTEGER NOT NULL REFERENCES users(id),
-    code            TEXT NOT NULL,                    -- 6-stelliger Einmal-Code
+    user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    product_id      TEXT NOT NULL REFERENCES products(id),
+    code            TEXT NOT NULL,                 -- 6-stellig, kryptographisch zufällig
+    device_uuid     TEXT NOT NULL,                 -- an das konkrete Gerät gebunden
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expires_at      TIMESTAMP NOT NULL,               -- +15 Minuten
-    used_at         TIMESTAMP                         -- NULL bis eingelöst
+    expires_at      TIMESTAMP NOT NULL,            -- typisch +15 Minuten
+    used_at         TIMESTAMP,                     -- NULL bis eingelöst
+    ip_address      TEXT
 );
 
+-- Devices (pro Nutzer × Produkt eindeutig)
 CREATE TABLE devices (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id         INTEGER NOT NULL REFERENCES users(id),
-    device_uuid     TEXT NOT NULL UNIQUE,             -- macOS Hardware-UUID
-    device_name     TEXT,                             -- z.B. "Alper's MacBook Pro"
-    product         TEXT NOT NULL,                    -- 'alva-text', später 'alva-macos', 'alva-ios'
-    app_version     TEXT,
+    user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    product_id      TEXT NOT NULL REFERENCES products(id),
+    device_uuid     TEXT NOT NULL,                 -- macOS/iOS Hardware-UUID
+    device_name     TEXT,                          -- vom User vergeben
+    platform        TEXT,                          -- 'macos', 'ios', 'ipados', ...
+    token           TEXT NOT NULL UNIQUE,          -- 64-Byte URL-safe Server-Token
     activated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_check_at   TIMESTAMP,
-    last_ip         TEXT,
-    token           TEXT NOT NULL UNIQUE,             -- Server-Token nach Aktivierung
-    revoked         INTEGER DEFAULT 0
+    last_check_ip   TEXT,
+    app_version     TEXT,
+    UNIQUE(user_id, product_id, device_uuid)
 );
 
-CREATE TABLE license_status_log (
+-- Lizenzstatus (pro Device, überschreibbar durch Admin oder Webhook)
+CREATE TABLE licenses (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    device_id       INTEGER REFERENCES devices(id),
-    timestamp       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status          TEXT,                             -- 'beta', 'active', 'expired', 'invalid'
-    tier            TEXT                              -- 'full', 'trial', 'paid'
+    device_id       INTEGER NOT NULL UNIQUE REFERENCES devices(id) ON DELETE CASCADE,
+    status          TEXT NOT NULL DEFAULT 'beta',  -- beta|trial|active|expired|revoked
+    tier            TEXT NOT NULL DEFAULT 'full',  -- full|limited|paid
+    trial_expires_at TIMESTAMP,                     -- Ende Trial-Phase
+    paid_at         TIMESTAMP,                     -- gesetzt durch Paddle-Webhook
+    revoked_at      TIMESTAMP,
+    revoked_reason  TEXT,
+    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Check-Log (für Monitoring, debugging, Audit)
+CREATE TABLE license_checks (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    device_id       INTEGER REFERENCES devices(id) ON DELETE SET NULL,
+    timestamp       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status_returned TEXT,
+    ip_address      TEXT,
+    app_version     TEXT
+);
+
+-- Server-Konfiguration (Kill-Switch-Logik)
+CREATE TABLE server_config (
+    key             TEXT PRIMARY KEY,
+    value           TEXT,
+    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+-- Initial:
+-- ('beta_mode_global', 'true')
+-- ('allowlist_cutoff_date', '2026-11-01')   -- Datum, bis zu dem Registrierungen Beta bleiben
 ```
 
-**Keine Passwort-Speicherung.** Der Auth-Flow läuft über Einmal-Codes an die echte Email-Inbox. Das ist sicherer, DSGVO-armer und für Endnutzer bequemer.
+**Design-Entscheidungen:**
+
+- **Keine Passwörter.** Authentifizierung erfolgt über Einmal-Codes an die bestätigte Email-Inbox.
+- **Eine Email pro User, mehrere Devices pro Produkt.** Ein User kann ALVA-TEXT auf 2–3 Geräten aktivieren.
+- **`licenses.status` + `tier` trennen.** `status=beta,tier=full` = Beta-Tester mit vollem Funktionsumfang. `status=active,tier=paid` = bezahlt. `status=expired,tier=limited` = Paywall-Modus.
+- **`server_config`-Tabelle** als globaler Kill-Switch — einfacher zu ändern als YAML-Config auf der Disk.
 
 ---
 
 ## 3. API-Endpunkte (FastAPI)
 
-### POST `/v1/activation/request`
-**Body:** `{ email: string, device_uuid: string, device_name: string, product: string, app_version: string }`
+Alle Endpunkte unter `/v1/`. Versionierung im URL-Pfad, damit zukünftige Breaking Changes ohne Client-Brüche möglich sind.
 
-Flow:
-1. Email-Regex-Check.
-2. User-Entry finden oder neu erstellen.
-3. 6-stelligen Code generieren (kryptographisch zufällig), 15-Minuten-Gültigkeit, in `activation_codes` speichern.
-4. Email an `users.email` mit Code-Text senden (via SMTP an ms512 oder über Mailgun/Resend).
-5. Rate-Limit: max 3 Code-Anfragen pro Email pro Stunde.
-6. Response: `{ ok: true, message: "Code per Email verschickt" }`.
+### POST `/v1/activation/request`
+
+**Body:** `{ email, product, device_uuid, device_name?, platform, app_version }`
+
+1. Email-Format validieren
+2. Produkt in `products` suchen, 404 wenn nicht existiert/inaktiv
+3. User anlegen oder finden
+4. Rate-Limit: max 3 Code-Anfragen pro (Email, Produkt) in 60 Minuten
+5. 6-stelligen Code generieren, 15-min Gültigkeit, speichern
+6. Email mit Code an `users.email` senden (Produkt-Name erwähnt)
+7. Response: `{ ok: true, message: "Code verschickt" }`
 
 ### POST `/v1/activation/verify`
-**Body:** `{ email: string, code: string, device_uuid: string }`
 
-Flow:
-1. Code gegen `activation_codes` prüfen (Email matcht, nicht abgelaufen, nicht schon eingelöst).
-2. Falls User noch nicht verifiziert: `users.verified_at` setzen.
-3. Device-Anzahl pro User prüfen — wenn `>= max_devices`, Response `too_many_devices` mit Liste der existierenden Devices zur Deaktivierung.
-4. Neuen Device-Eintrag anlegen mit zufälligem Token (64 Byte URL-safe).
-5. Code als `used_at = now` markieren.
-6. Response: `{ ok: true, token: "...", status: "beta", tier: "full" }`.
+**Body:** `{ email, product, code, device_uuid }`
+
+1. Code nachschlagen, auf (email, product, device_uuid) matchen, Gültigkeit prüfen
+2. `users.verified_at` setzen (falls noch nicht verifiziert)
+3. Device-Limit für (user, product) prüfen — Default max 3, konfigurierbar pro Produkt
+4. Device-Eintrag anlegen, 64-Byte URL-safe Token generieren
+5. License-Eintrag anlegen mit Initial-Status = `beta`/`full` (oder aus globaler Config ableitbar)
+6. Code als `used_at = now` markieren
+7. Response: `{ ok: true, token, status, tier, message }`
 
 ### POST `/v1/license/check`
-**Header:** `Authorization: Bearer <token>`
-**Body:** `{ device_uuid: string, app_version: string }`
 
-Flow:
-1. Token in `devices.token` suchen, `device_uuid` matchen, `revoked = 0`.
-2. `last_check_at = now`, `app_version` updaten, `last_ip` loggen.
-3. User-Status prüfen: `paid_flag` ODER `allowlist_flag` ODER (globaler Beta-Modus an) → `status = active/beta`.
-4. Sonst → `status = expired`, App zeigt Paywall.
-5. Log-Eintrag in `license_status_log`.
-6. Response: `{ status: "beta|active|expired", tier: "full|paid|trial", message: "...", check_again_in: 86400 }`.
+**Header:** `Authorization: Bearer <token>`
+**Body:** `{ product, device_uuid, app_version? }`
+
+1. Token in `devices.token` lookup, `device_uuid` + `product_id` müssen matchen
+2. `last_check_at`, `last_check_ip`, `app_version` aktualisieren
+3. Kill-Switch-Logik auswerten:
+   - wenn `licenses.status = revoked` → respond `revoked`
+   - wenn `licenses.status = paid` → respond `active, paid`
+   - wenn `users.id` auf Allowlist ODER `server_config.beta_mode_global = true` → respond `beta, full`
+   - wenn `licenses.status = trial` und `trial_expires_at > now` → respond `trial, full`
+   - sonst → respond `expired, limited`
+4. Log-Eintrag in `license_checks`
+5. Response: `{ status, tier, message, check_again_in: 86400 }`
+
+### POST `/v1/device/list`
+
+**Header:** Bearer-Auth
+**Body:** `{ email, product }`
+
+Liefert dem Nutzer seine eigenen Devices für ein Produkt, damit er in der App Geräte verwalten/abmelden kann.
 
 ### POST `/v1/device/revoke`
-Manuell vom Admin-Dashboard (oder User „Dieses Gerät entfernen"-Button). Setzt `revoked=1`, App verliert beim nächsten Check Zugriff.
 
-### POST `/v1/webhook/paddle` *(später)*
-Paddle-Webhook bei erfolgreicher Zahlung: `users.paid_flag = 1` für die angegebene Email, Mail mit Bestätigung.
+**Header:** Bearer-Auth (User-Token oder Admin-Token)
+**Body:** `{ device_uuid, product }`
 
-### GET `/v1/admin/stats` *(intern)*
-Dashboard: Anzahl User total, aktive Devices, Checks pro Tag, Top-Länder, aktuelle Beta-Mode-Einstellung.
+Markiert `licenses.status = revoked`, Token wird invalid.
 
----
+### POST `/v1/webhook/paddle`
 
-## 4. Globale Konfiguration (Kill-Switch)
+**Header:** Paddle-Signature
+**Body:** Paddle-Event-Payload
 
-Eine einzelne `config.yaml` oder DB-Tabelle `server_config`:
+1. Signatur mit Paddle-Secret verifizieren (wichtig, sonst kann jeder „bezahlt" faken)
+2. Event `transaction.completed` auswerten: Email aus Paddle-Daten, Produkt über Paddle-Produkt-ID mappen
+3. `licenses.status = paid`, `tier = paid`, `paid_at = now` für alle Devices des Users bei dem Produkt
+4. Bestätigungsmail senden
 
-```yaml
-beta_mode: true                # false = Kill-Switch aktiv, nur paid_flag/allowlist_flag zählen
-beta_cutoff_date: null         # Datum, ab dem Neuregistrierungen nicht mehr beta sind
-paddle_enabled: false          # Paywall-Screen zeigen ja/nein
-message_of_the_day: null       # optionale Server-Push-Nachricht an alle Clients
-```
+### GET `/v1/admin/*` (Protected)
 
-**Kill-Switch-Ablauf in der Praxis:**
-1. Du setzt `beta_mode: false` und `beta_cutoff_date: 2026-07-01`.
-2. Alle Devices mit `activated_at < 2026-07-01` ODER `allowlist_flag=1` ODER `paid_flag=1` → `status=active`.
-3. Alle neueren Devices ohne `paid_flag` → `status=expired`.
-4. App zeigt Paywall, weist auf Kauf-Link via Paddle hin.
+Admin-Endpunkte hinter separatem Admin-Token (aus ENV-Variable, nicht Email-basiert):
+
+- `GET /v1/admin/users?product=alva-text` — Nutzerliste pro Produkt
+- `GET /v1/admin/user/{email}` — alle Details eines Nutzers
+- `POST /v1/admin/user/{email}/allowlist` — Permanent-Allowlist setzen
+- `DELETE /v1/admin/user/{email}` — DSGVO-Löschung
 
 ---
 
-## 5. Client-Seite (ALVA-TEXT)
+## 4. Konfiguration und Kill-Switch
 
-### Beim ersten App-Start (keine Aktivierung vorhanden):
+**Global** (eine `server_config`-Tabelle, pro Key-Value):
 
-1. **Welcome-Screen:** „Bitte gib deine Email ein. Du bekommst einen 6-stelligen Code zur Aktivierung."
-2. **Email-Eingabe → POST `/activation/request`.**
-3. **Code-Eingabe-Screen:** „Wir haben dir einen Code geschickt. Bitte prüfe deinen Posteingang."
-4. **Code eingeben → POST `/activation/verify`.**
-5. Server-Token in **macOS Keychain** speichern (Service: `com.adserica.alvatext.license`).
-6. App schaltet frei, zeigt die normale UI.
+| Key | Wert | Wirkung |
+|---|---|---|
+| `beta_mode_global` | `true` / `false` | Wenn `true`: alle Devices antworten mit `status=beta, tier=full`, egal was in `licenses` steht. Komplett offen für Beta-Phase. |
+| `allowlist_cutoff_date` | ISO-Datum | Alle `devices.activated_at < cutoff` bleiben auf Allowlist, auch wenn `beta_mode_global = false`. Schützt Bestands-Beta-Tester. |
+| `require_paid` | product-id oder `*` | Für welche Produkte ist Paywall aktiv? |
 
-### Bei jedem App-Start (Aktivierung vorhanden):
+**Typischer Phasen-Flow:**
 
-1. Token aus Keychain lesen.
-2. POST `/license/check` mit Token + Device-UUID.
-3. Response auswerten:
-   - `active` oder `beta` → App läuft normal.
-   - `expired` → Paywall-Screen: „Deine Testphase ist abgelaufen. Einmal-Kauf für €20 bei Paddle."
-   - `invalid` (Token nicht mehr gültig, z.B. revoked) → Aktivierung-Screen neu.
-4. Falls Server nicht erreichbar: letzten gültigen Status aus Keychain cachen, 14 Tage Grace-Period.
-5. Nach 14 Tagen offline: App geht in Read-Only-Modus mit Popup „Bitte einmal online für Lizenz-Check".
+1. **Beta-Phase:** `beta_mode_global = true`. Alle Nutzer „beta, full". Kein Paywall.
+2. **Kill-Switch-Tag:** `beta_mode_global = false`, `allowlist_cutoff_date = <heute>`, `require_paid = alva-text`. Bestandstester bleiben auf Allowlist, Neuregistrierungen brauchen nach 14-Tage-Trial Paddle-Zahlung.
+3. **Vollmonetarisierung:** jedes Produkt pro `require_paid` einzeln steuerbar.
 
-### Zusätzlich einmal alle 24h:
+---
 
-Im Hintergrund ein `/license/check`. Wenn der Server mittlerweile den Kill-Switch umgelegt hat, bekommt die App das innerhalb eines Tages mit.
+## 5. Client-Integration (ALVA-TEXT erster Tenant)
+
+### First-Run-Flow
+
+1. App ist gerade installiert, Keychain leer.
+2. Onboarding-Screen „Willkommen bei ALVA-TEXT".
+3. Email-Screen: „Bitte gib deine Email ein. Wir schicken dir einen Aktivierungscode."
+4. `POST /v1/activation/request` → Email rausgegangen.
+5. Code-Screen: „Wir haben dir einen 6-stelligen Code geschickt. Einfach eingeben."
+6. `POST /v1/activation/verify` → Token kommt zurück.
+7. Token in Keychain (Service: `com.adserica.alvatext`, Account: `licenseToken`).
+8. App schaltet frei → normale UI.
+
+### Daily-Check
+
+1. App-Start: Token aus Keychain lesen.
+2. Letzter Status aus Keychain cachen (14 Tage Grace-Period).
+3. Background-Task alle 24 h: `POST /v1/license/check`.
+4. Response auswerten: `active|beta|trial` → App läuft, `expired` → Paywall-Screen, `revoked` → Aktivierung neu starten.
+5. Bei Netzwerk-Fehler: letzter gecachter Status wird weiter genutzt, bis Grace-Period abläuft.
+
+### Multi-Produkt-Ready
+
+Der gleiche `LicenseClient.swift` in der App ist wiederverwendbar für künftige Produkte. Der Produkt-Identifier `"alva-text"` ist eine einzige Konstante, die im späteren ALVA-macOS zu `"alva-macos"` wird.
 
 ---
 
 ## 6. Email-Versand
 
-**Option A (sofort, simpel):** SMTP via **Mailgun** (kostenlos bis 5.000 Mails/Monat) oder **Resend** (kostenlos bis 3.000/Monat). Nur transactional Mails, keine Newsletter.
+**Provider für Phase 1–2: Mailgun** (alternativ Resend — vergleichbare Konditionen).
 
-**Option B (später, eigenständig):** MS512 eigener Mail-Server — aber SPF/DKIM/DMARC-Konfiguration ist Arbeit, und Mails aus Heim-Anschlüssen landen oft im Spam.
+- AdLuna GmbH als Account-Inhaber
+- Domain `adluna.de` verifiziert (DKIM + SPF + DMARC) — _das_ ist die Arbeit, keine Shortcuts
+- Absender: `support@adluna.de` oder `hello@adluna.de` (beide identisch routet auf dein Postfach)
+- Template: einfacher HTML + Plaintext-Mail mit Code und Produkt-Erwähnung
 
-**Empfehlung für Start: Mailgun oder Resend,** `support@adluna.de` als Absender. Domain-Verification (SPF/DKIM) einmalig einrichten.
+**Einmal-Aufwand DNS:** siehe `docs/ADLUNA_DNS_SETUP.md`.
 
-**Mail-Template für Aktivierungscode:**
-```
-Betreff: Dein ALVA-TEXT Aktivierungscode
-
-Hi!
-
-Dein Aktivierungscode für ALVA-TEXT lautet:
-
-    ABC123
-
-Der Code ist 15 Minuten gültig. Einfach in der App eingeben
-und loslegen.
-
-Fragen? Schreib uns: support@adluna.de
-
-Viele Grüße
-AdLuna GmbH
-```
+**Kosten Mailgun Foundation Plan:** 15 USD/Monat für 50.000 Mails, mehr als genug für Aktivierungs- und Transaktions-Mails.
 
 ---
 
-## 7. Infrastruktur-Setup
+## 7. Deployment auf MS512
 
-### MS512-Deployment
+### Verzeichnisstruktur
 
-1. **FastAPI-Service** unter `~/services/alva-license/`:
-   - `main.py` (die 6 Endpunkte)
-   - `database.py` (SQLAlchemy)
-   - `emailer.py` (Mailgun/Resend-Client)
-   - `config.py` (Beta-Mode Flags)
-   - `alembic/` (Migrations)
-2. **Running via `uvicorn`** unter systemd-Service oder Docker.
-3. **Port 8080 intern**, per Cloudflare Tunnel auf `api.adluna.de` public exposed.
-4. **SQLite-DB** unter `~/services/alva-license/license.db` — tägliches Backup auf NAS.
+```
+~/services/adluna-platform-api/
+├── app/
+│   ├── main.py              FastAPI-Einstiegspunkt
+│   ├── models.py            SQLAlchemy-Modelle
+│   ├── database.py          DB-Connection, Sessionmaker
+│   ├── emailer.py           Mailgun-Client
+│   ├── auth.py              Token-Generierung, Bearer-Auth-Dependency
+│   ├── schemas.py           Pydantic-Request/Response-Schemas
+│   ├── endpoints/
+│   │   ├── activation.py    /v1/activation/*
+│   │   ├── license.py       /v1/license/*
+│   │   ├── device.py        /v1/device/*
+│   │   ├── webhook.py       /v1/webhook/*
+│   │   └── admin.py         /v1/admin/*
+│   └── config.py            Settings aus ENV
+├── alembic/                 DB-Migrationen
+├── tests/
+├── requirements.txt
+├── Dockerfile
+├── docker-compose.yml
+├── .env.example
+└── README.md
+```
+
+### Prozess-Betrieb
+
+- **systemd-Unit** `adluna-platform-api.service` — Auto-Restart, Logging nach `journald`
+- Alternativ: **Docker Compose** für saubere Isolation (bevorzugt)
+- **Port 8080** intern, via **Cloudflare Tunnel** an `api.adluna.de` public
+- **SQLite-DB** unter `~/services/adluna-platform-api/data/license.db`
+- **Tägliches Backup** via cron-Job auf NAS und in MS512-Backup-Verzeichnis
 
 ### Monitoring
 
-- **Uptime-Check** via UptimeRobot oder selbstgehostetes Prometheus.
-- **Error-Logging** via Loguru → `~/services/alva-license/logs/`.
-- **Wöchentlicher Report** per Mail an dich: Anzahl Neuregistrierungen, aktive Devices, Fehler-Count.
-
-### Sicherheit
-
-- Alle Endpunkte nur über HTTPS (Cloudflare Tunnel macht das automatisch).
-- Tokens sind 64-Byte URL-safe Strings, keine reversiblen JWT mit Secrets im Client.
-- Rate-Limits pro Email und pro IP (z.B. via slowapi).
-- DB-Backup täglich auf NAS, verschlüsselt.
-- **KEIN Passwort**, keine sensiblen User-Daten außer Email → DSGVO-Footprint minimal.
+- **Uptime-Check** auf `api.adluna.de/health` via UptimeRobot (kostenlos bis 50 Monitore)
+- **Logs:** `~/services/adluna-platform-api/logs/*.log` via Loguru
+- **Daily Digest Mail** an Alper: Zahl Neuregistrierungen, Fehler-Count, Check-Volumen (Cron-Job)
+- **Errors:** auf Wunsch Sentry-Integration (Phase 3)
 
 ---
 
-## 8. DSGVO-Kurzeinschätzung
+## 8. Deployment-Skript
 
-**Gespeicherte Daten pro User:**
-- Email (PII)
-- Device-UUID (Pseudonym)
-- Device-Name (evtl. PII, wenn User-benannt — wird optional gemacht)
-- IP-Adresse (PII)
-- Zeitstempel
+`docs/deploy-platform-api.sh` — überträgt den Code-Ordner auf MS512, installiert Abhängigkeiten, legt systemd-Unit an, startet den Service, führt initiale Migration aus, seedet Produkte (ALVA-TEXT als ersten Eintrag).
 
-**Verarbeitungszwecke:**
-- Technische Authentifizierung (Art. 6 Abs. 1 lit. b DSGVO — Vertrag)
-- Lizenzverwaltung (lit. b)
-- Versand transactional Mails (lit. b)
-
-**Keine** Newsletter, keine Tracking-Cookies, kein Profiling. Deshalb:
-- **Kein Datenschutzbeauftragter erforderlich** (AdLuna GmbH wird weniger als 20 Personen dauerhaft damit beschäftigen).
-- **Standard-Datenschutzerklärung** auf `adluna.de/datenschutz` reicht — ich liefere Muster.
-- **Lösch-Recht:** User kann jederzeit `support@adluna.de` schreiben → wir löschen Email + alle Devices. Admin-Endpoint `DELETE /v1/admin/user/{email}` dafür einbauen.
+Idempotent: kann beliebig oft ausgeführt werden, aktualisiert die Deployment-Version.
 
 ---
 
-## 9. AI-Act-Kurzeinschätzung
+## 9. DSGVO-Kurzeinschätzung
 
-Der License-Server ist **keine KI-Komponente** — nur Auth/Lizenzverwaltung. ALVA-TEXT selbst nutzt Whisper-Transkription + GPT-4o-mini für Rewrite. Beides läuft als **„limited risk AI"** im AI-Act-Sinne (Art. 50 Transparenzpflicht):
-
-- **Pflicht:** Nutzer muss erkennen können, dass KI eingesetzt wird.
-- **Erfüllung:** Onboarding-Screen + Settings-Eintrag „ALVA nutzt KI-basierte Transkription (OpenAI Whisper) und Textbearbeitung (OpenAI GPT-4o-mini)."
-- **Dokumentationspflicht:** leichtgewichtig — keine Conformity Assessment, keine CE-Kennzeichnung.
-
-**Voraussichtliche Einstufung:** ALVA-TEXT ist weder High-Risk (Anhang III), noch Prohibited (Art. 5), noch GPAI-System. → Compliance mit Standard-Transparenzhinweisen erfüllt.
-
-Langfristig, wenn ALVA-Hauptprodukt mit LoRA-Nachttraining auf User-Daten läuft, wird die AI-Act-Einstufung komplexer — das gehört dann in die ALVA-Doku, nicht die ALVA-TEXT-Doku.
+Unverändert zum Original-Design: minimale PII (Email, Device-UUID, IP), Art. 6 (1) b (Vertragserfüllung) als Rechtsgrundlage, kein DSB erforderlich bei < 20 Personen-Teamgröße. Details: `Brain/02_PROJEKTE/ALVA-TEXT/05-AI_Act_und_DSGVO_Compliance.md`.
 
 ---
 
-## 10. Implementierungs-Reihenfolge
+## 10. AI-Act-Kurzeinschätzung
 
-**Phase A — MVP-Lizenz-Server (1 Woche, 8–12 h Arbeit):**
-1. FastAPI-Skelett auf MS512, `/activation/request` + `/activation/verify` + `/license/check`.
-2. SQLite-Schema, Alembic-Migrations.
-3. Mailgun-Integration, Aktivierungscode-Mail.
-4. Cloudflare Tunnel auf `api.adluna.de`.
-
-**Phase B — ALVA-TEXT Client-Integration (3–5 h):**
-1. SwiftUI-Onboarding erweitern: Email-Screen + Code-Screen.
-2. `LicenseClient.swift`, Keychain-Token-Store.
-3. Täglicher Background-Check.
-4. Paywall-Screen (ausgeblendet bis Kill-Switch).
-
-**Phase C — Admin-Dashboard (2–3 h):**
-Minimal: eine geschützte HTML-Seite auf `api.adluna.de/admin` mit Tabelle aller User + Devices + Buttons „Revoke", „Force-Activate".
-
-**Phase D — Paddle-Integration (wenn monetarisiert wird, 2–3 h):**
-Webhook-Endpunkt, User als `paid_flag=1` markieren, Bestätigungsmail.
+Der License-Server selbst ist **keine KI-Komponente** — nur Auth-/Lizenzverwaltung. Betrifft weder AI-Act-Pflichten für High-Risk noch für Limited-Risk. Die KI-Transparenz-Pflicht liegt bei den Client-Apps (ALVA-TEXT, künftige). Details: `Brain/02_PROJEKTE/ALVA-TEXT/05-AI_Act_und_DSGVO_Compliance.md`.
 
 ---
 
@@ -284,13 +328,46 @@ Webhook-Endpunkt, User als `paid_flag=1` markieren, Bestätigungsmail.
 |---|---|---|
 | MS512 (vorhanden) | 0 € | — |
 | Cloudflare Tunnel | 0 € | — |
-| Mailgun bis 5k/Monat | 0 € | monatlich |
 | Domain `adluna.de` | ~12 €/Jahr | jährlich |
+| Mailgun Foundation Plan | ~14 €/Monat | monatlich |
 | Paddle (wenn aktiv) | 5 % + 0,50 € | pro Transaktion |
 | Steuerberater HK-Struktur | 1.500–3.000 € | einmalig |
 
-Bis zur Monetarisierung: **laufende Kosten nahe null**. Nach Monetarisierung: klassische SaaS-Unit-Economics.
+Bis zur Monetarisierung: **laufende Kosten ca. 15 €/Monat**, einmalige Setup-Kosten null.
 
 ---
 
-*Dokument gepflegt unter `docs/LICENSE_SERVER_DESIGN.md`. Letzter Stand: 22. April 2026, 17:00.*
+## 12. Implementierungs-Reihenfolge
+
+**Phase A — Core-API (1–2 Tage):**
+1. FastAPI-Skelett anlegen (`services/adluna-platform-api/`)
+2. Datenmodell + Alembic-Migrations
+3. Endpoints implementieren (Activation, License, Webhook-Stub)
+4. Admin-Endpunkte minimal
+
+**Phase B — Deployment (0,5 Tag):**
+1. systemd-Unit + Docker-Compose auf MS512
+2. Cloudflare Tunnel für `api.adluna.de`
+3. HTTPS testen
+
+**Phase C — Mailgun (0,5 Tag):**
+1. Mailgun-Account auf AdLuna GmbH
+2. DNS-Records für `adluna.de` (DKIM, SPF, DMARC) setzen
+3. Email-Template-Tests
+
+**Phase D — Client-Integration (1 Tag):**
+1. SwiftUI-Aktivierungsscreen in ALVA-TEXT
+2. LicenseClient.swift mit URLSession
+3. Keychain-Token-Speicher
+4. Background-Check-Logic
+
+**Phase E — Test + Release (0,5 Tag):**
+1. End-to-End-Test mit eigenem Account
+2. Notarisierter Build mit License-Flow
+3. Release-Pipeline laufen
+
+**Total: ~4 aktive Arbeitstage. Tester-Release in 1 Woche realistisch.**
+
+---
+
+*Dokument gepflegt unter `docs/LICENSE_SERVER_DESIGN.md`. Letzter Stand: 22. April 2026, v2 Multi-Tenant.*

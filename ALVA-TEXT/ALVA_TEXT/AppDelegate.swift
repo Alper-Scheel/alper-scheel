@@ -19,6 +19,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuController = StatusMenuController(coordinator: coordinator)
         coordinator.start()
 
+        // License-Status hydratieren + täglichen Check starten. Blockiert
+        // den Launch nicht — Ergebnis landet via LicenseState in der UI.
+        LicenseState.shared.start()
+
         // First-run onboarding: a guided setup for API key, Accessibility
         // and Input-Monitoring. Skipped if the user has seen it before.
         // Can be re-launched from the status menu.

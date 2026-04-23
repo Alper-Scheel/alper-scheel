@@ -1,0 +1,66 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Xcode
+build/
+DerivedData/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.swiftpm/
+Packages/
+Package.pins
+Package.resolved
+
+# Python / services/adluna-platform-api
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# --- Secrets & Environment ---
+# NEVER commit .env files (may contain API keys, DB passwords, etc.)
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+**/.env.production
+**/.env.*.local
+
+# License-Server SQLite
+services/adluna-platform-api/data/
+services/adluna-platform-api/logs/
+services/adluna-platform-api/backups/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node (in case any tooling slips in)
+node_modules/
+
+# Local-only notes
+SCRATCH.md
+*.scratch.md
