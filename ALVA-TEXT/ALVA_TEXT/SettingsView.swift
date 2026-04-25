@@ -4,29 +4,51 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var coordinator: AppCoordinator
+    @State private var selectedTab: String = "general"
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             GeneralTab()
+                .tag("general")
                 .tabItem { Label("Allgemein", systemImage: "gearshape") }
 
             ModesTab()
+                .tag("modes")
                 .tabItem { Label("Modi & Kürzel", systemImage: "keyboard") }
 
             TranslationTab()
+                .tag("translation")
                 .tabItem { Label("Sprachübersetzung", systemImage: "character.bubble") }
 
             AccessibilityTab()
+                .tag("accessibility")
                 .tabItem { Label("Bedienungshilfen", systemImage: "hand.tap") }
 
             StatusTab()
+                .tag("status")
                 .tabItem { Label("Status", systemImage: "waveform.badge.magnifyingglass") }
 
             AccountTab()
+                .tag("account")
                 .tabItem { Label("Account", systemImage: "person.crop.circle") }
         }
         .padding(16)
         .frame(minWidth: 680, minHeight: 600)
+        .onAppear {
+            // Wenn beim Öffnen ein spezieller Tab gewünscht wurde
+            // (z.B. beim ersten Launch automatisch "account"), dorthin
+            // springen und den Wunsch zurücksetzen.
+            if let requested = coordinator.settingsRequestedTab {
+                selectedTab = requested
+                coordinator.settingsRequestedTab = nil
+            }
+        }
+        .onChange(of: coordinator.settingsRequestedTab) { _, new in
+            if let new {
+                selectedTab = new
+                coordinator.settingsRequestedTab = nil
+            }
+        }
     }
 }
 
@@ -80,6 +102,7 @@ private struct GeneralTab: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
+                AccountStatusHeader()
                 TranscriptionBackendCard()
 
                 Card(title: "OpenAI-Schlüssel (optional)",
@@ -1808,3 +1831,214 @@ private struct AccountTab: View {
         }
     }
 }
+
+// MARK: - AccountStatusHeader (oben im Allgemein-Tab)
+
+/// Zeigt oben im Allgemein-Tab den Lizenz-Status in kompakter Form.
+///
+/// Bei NICHT aktiviert: grosser Call-to-Action mit „Aktivieren"-Button,
+/// der direkt zum Account-Tab springt.
+/// Bei aktiviert: schmale Info-Zeile mit Avatar, E-Mail und Status, plus
+/// „Konto verwalten"-Link.
+///
+/// Zweck: Der Nutzer soll den Aktivierungs-Status sofort sehen, ohne erst
+/// durch die Tabs navigieren zu muessen. Das war eine der wichtigsten
+/// UX-Beschwerden des ersten Releases.
+private struct AccountStatusHeader: View {
+    @EnvironmentObject var coordinator: AppCoordinator
+    @StateObject private var license = LicenseState.shared
+    @State private var showActivation = false
+
+    var body: some View {
+        switch license.phase {
+        case .needsActivation:
+            notActivatedCard
+        case .active(let status, let tier, _):
+            activatedRow(status: status, tier: tier)
+        case .expired:
+            expiredCard
+        case .revoked:
+            revokedCard
+        case .loading, .error:
+            loadingRow
+        }
+    }
+
+    // MARK: Not activated — grosser Call-to-Action
+
+    private var notActivatedCard: some View {
+        HStack(alignment: .center, spacing: 16) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.accentColor.opacity(0.12))
+                    .frame(width: 48, height: 48)
+                Image(systemName: "key.fill")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(Color.accentColor)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Jetzt kostenlos aktivieren")
+                    .font(.headline)
+                Text("Einmalig Ihre E-Mail hinterlegen. Kostenfrei in der Beta-Phase.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Button {
+                coordinator.settingsRequestedTab = "account"
+            } label: {
+                Text("Aktivieren")
+                    .fontWeight(.semibold)
+                    .frame(minWidth: 90)
+            }
+            .controlSize(.large)
+            .buttonStyle(.borderedProminent)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.accentColor.opacity(0.06))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.accentColor.opacity(0.25), lineWidth: 1)
+        )
+    }
+
+    // MARK: Activated — kompakte Info-Zeile
+
+    @ViewBuilder private func activatedRow(status: String, tier: LicenseState.Tier) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            AvatarView(email: license.currentEmail)
+                .frame(width: 36, height: 36)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(license.currentEmail ?? "ALVA-TEXT")
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(tierColor(tier))
+                        .frame(width: 6, height: 6)
+                    Text(statusText(status: status, tier: tier))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            Button("Konto verwalten") {
+                coordinator.settingsRequestedTab = "account"
+            }
+            .buttonStyle(.link)
+            .font(.caption)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(Color.secondary.opacity(0.12), lineWidth: 1)
+        )
+    }
+
+    // MARK: Expired / Revoked — Warnung
+
+    private var expiredCard: some View {
+        statusBanner(
+            icon: "exclamationmark.triangle.fill",
+            iconColor: .orange,
+            title: "Testzeitraum abgelaufen",
+            subtitle: "Zur Weiternutzung bitte eine Lizenz erwerben.",
+            actionTitle: "Konto ansehen",
+            background: Color.orange.opacity(0.08),
+            border: Color.orange.opacity(0.35)
+        )
+    }
+
+    private var revokedCard: some View {
+        statusBanner(
+            icon: "xmark.seal.fill",
+            iconColor: .red,
+            title: "Zugang wurde widerrufen",
+            subtitle: "Bitte Support kontaktieren: support@adluna.de",
+            actionTitle: "Konto ansehen",
+            background: Color.red.opacity(0.08),
+            border: Color.red.opacity(0.35)
+        )
+    }
+
+    private var loadingRow: some View {
+        HStack(spacing: 10) {
+            ProgressView()
+                .controlSize(.small)
+            Text("Lizenzstatus wird geladen …")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    // MARK: Helpers
+
+    @ViewBuilder private func statusBanner(icon: String, iconColor: Color, title: String, subtitle: String, actionTitle: String, background: Color, border: Color) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundStyle(iconColor)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.headline)
+                Text(subtitle).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button(actionTitle) {
+                coordinator.settingsRequestedTab = "account"
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 10).fill(background)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10).stroke(border, lineWidth: 1)
+        )
+    }
+
+    private func tierColor(_ tier: LicenseState.Tier) -> Color {
+        switch tier {
+        case .full, .paid: return .green
+        case .limited:     return .yellow
+        }
+    }
+
+    private func statusText(status: String, tier: LicenseState.Tier) -> String {
+        let statusPart: String = {
+            switch status {
+            case "beta":   return "Beta aktiv"
+            case "trial":  return "Testzeitraum"
+            case "active": return "Lizenz aktiv"
+            default:       return status.capitalized
+            }
+        }()
+        let tierPart: String = {
+            switch tier {
+            case .full:    return "Voller Funktionsumfang"
+            case .paid:    return "Bezahlt"
+            case .limited: return "Eingeschränkt"
+            }
+        }()
+        return "\(statusPart) · \(tierPart)"
+    }
+}
+

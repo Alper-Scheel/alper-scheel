@@ -472,6 +472,12 @@ final class AppCoordinator: ObservableObject {
     private var isProcessing = false
     private var isReverseTranslating = false
     private var settingsWindowController: NSWindowController?
+
+    /// Wenn gesetzt, springt die Settings-Ansicht beim naechsten Oeffnen
+    /// in diesen Tab und setzt sich danach selbst zurueck. Wird z.B. beim
+    /// ersten App-Start verwendet, um direkt den Account-Tab zu zeigen,
+    /// falls die App noch nicht aktiviert ist.
+    @Published var settingsRequestedTab: String?
     private var reverseTranslateWindowController: NSWindowController?
     private var historyWindowController: NSWindowController?
     private var onboardingWindowController: NSWindowController?
@@ -542,7 +548,13 @@ final class AppCoordinator: ObservableObject {
         }
     }
 
-    func openSettings() {
+    func openSettings(initialTab: String? = nil) {
+        // Wenn ein Wunsch-Tab mitkommt (z.B. "account" beim Erstlauf),
+        // jetzt vormerken — SettingsView liest das im onAppear/onChange.
+        if let initialTab {
+            settingsRequestedTab = initialTab
+        }
+
         // Remember which app was frontmost BEFORE we activate ourselves, so
         // "Test Paste" from the Settings window can paste back into it.
         if let front = NSWorkspace.shared.frontmostApplication,

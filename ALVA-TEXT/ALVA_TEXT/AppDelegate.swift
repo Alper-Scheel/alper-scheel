@@ -30,6 +30,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                 self?.coordinator.showOnboardingWindow()
             }
+        } else if !LicenseClient.isActivated {
+            // Kein Onboarding mehr noetig, aber noch nicht aktiviert: direkt
+            // in die Settings und den Account-Tab aufrufen, damit der User
+            // nicht erst das Menu-Bar-Icon finden muss.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.coordinator.openSettings(initialTab: "account")
+            }
         }
     }
 
