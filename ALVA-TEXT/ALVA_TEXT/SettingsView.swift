@@ -12,21 +12,21 @@ struct SettingsView: View {
                 .tag("general")
                 .tabItem { Label("Allgemein", systemImage: "gearshape") }
 
-            ModesTab()
-                .tag("modes")
-                .tabItem { Label("Modi & Kürzel", systemImage: "keyboard") }
+            SystemTab()
+                .tag("system")
+                .tabItem { Label("Systemfreigaben", systemImage: "lock.shield") }
 
-            TranslationTab()
-                .tag("translation")
-                .tabItem { Label("Sprachübersetzung", systemImage: "character.bubble") }
+            ShortcutsTab()
+                .tag("shortcuts")
+                .tabItem { Label("Shortcuts", systemImage: "keyboard") }
 
-            AccessibilityTab()
-                .tag("accessibility")
-                .tabItem { Label("Bedienungshilfen", systemImage: "hand.tap") }
+            LanguagesTab()
+                .tag("languages")
+                .tabItem { Label("Sprachen", systemImage: "character.bubble") }
 
-            StatusTab()
-                .tag("status")
-                .tabItem { Label("Status", systemImage: "waveform.badge.magnifyingglass") }
+            HistoryTab()
+                .tag("history")
+                .tabItem { Label("Verlauf", systemImage: "clock.arrow.circlepath") }
 
             AccountTab()
                 .tag("account")
@@ -96,79 +96,166 @@ private struct Card<Content: View>: View {
 
 // MARK: - Allgemein
 
+/// Allgemein-Tab. Übersichts-Seite analog zum About-Tab in Tailscale:
+/// Logo, Version, Lizenz-Links, Status der Aktivierung, Hinweise zum
+/// lokalen Betrieb. Die eigentliche Konfiguration wandert in den
+/// Systemfreigaben-Tab — hier ist nur Lesen, keine Verhaltens-
+/// Einstellungen.
 private struct GeneralTab: View {
     @EnvironmentObject var coordinator: AppCoordinator
+    @StateObject private var license = LicenseState.shared
 
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
+                AboutCard()
                 AccountStatusHeader()
+                if license.currentEmail != nil {
+                    GravatarHintRow()
+                }
+                LocalProcessingHintCard()
                 TranscriptionBackendCard()
-
-                Card(title: "OpenAI-Schlüssel (optional)",
-                     subtitle: "Nur für Höflich, Nachricht und Sprach-Übersetzung",
-                     icon: "key.fill",
-                     accent: .blue) {
-                    SecureField("sk-… (leer lassen für reinen Lokalbetrieb)", text: $coordinator.apiKey)
-                        .textFieldStyle(.roundedBorder)
-                    Text("Ohne Schlüssel funktioniert der Standard-Modus (reines Transkript) vollständig lokal. Für Umformulierungen und Übersetzungen wird ein Schlüssel von platform.openai.com benötigt. Der Schlüssel wird lokal im macOS-Schlüsselbund gespeichert.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Card(title: "Verhalten", subtitle: "Standardaktionen nach der Transkription", icon: "gearshape.2.fill", accent: .gray) {
-                    Toggle("Nach Transkription automatisch einfügen", isOn: $coordinator.autoPaste)
-                    Toggle("Höfliche Umformulierung im Höflich-Modus", isOn: $coordinator.rewriteEnabled)
-                }
-
-                Card(title: "Beim Start", subtitle: "Autostart und Einrichtung", icon: "power.circle.fill", accent: .teal) {
-                    Toggle("ALVA-TEXT bei Login automatisch starten", isOn: Binding(
-                        get: { coordinator.isLaunchAtLoginEnabled },
-                        set: { coordinator.setLaunchAtLogin($0) }
-                    ))
-                    HStack {
-                        Button("Einrichtung erneut starten …") {
-                            coordinator.showOnboardingWindow()
-                        }
-                        Spacer()
-                    }
-                }
-
-                Card(title: "Verlauf", subtitle: "Transkript-Historie (letzte \(AppCoordinator.maxHistoryEntries))", icon: "clock.fill", accent: .indigo) {
-                    Toggle("Transkripte speichern", isOn: $coordinator.historyEnabled)
-                    HStack {
-                        Button("Verlauf öffnen …") {
-                            coordinator.openHistoryWindow()
-                        }
-                        Button("Verlauf komplett löschen") {
-                            coordinator.clearHistory()
-                        }
-                        .foregroundStyle(.red)
-                        .disabled(coordinator.history.isEmpty)
-                        Spacer()
-                        Text("\(coordinator.history.count) Einträge")
-                            .foregroundStyle(.secondary)
-                            .font(.caption)
-                    }
-                }
-
-                Card(title: "App beenden", icon: "power", accent: .red) {
-                    Button("ALVA-TEXT beenden") {
-                        NSApp.terminate(nil)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(.red)
-                }
             }
             .padding(2)
         }
     }
 }
 
-// MARK: - Modi & Kürzel
+// MARK: - About-Block + Hinweise (im Allgemein-Tab)
 
-private struct ModesTab: View {
+/// Über-Block oben im Allgemein-Tab — analog zum About-Pane in
+/// Tailscale. Zeigt Logo, App-Name, Version + Build, Notarisierung
+/// und Links zu Datenschutz/AGB/Open-Source-Lizenzen. In v1.2.0
+/// kommt hier zusätzlich der Auto-Update-Toggle (Sparkle) dazu —
+/// die Card-Struktur ist darauf vorbereitet.
+private struct AboutCard: View {
+    private var versionText: String {
+        let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+        let b = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
+        return "Version \(v) (Build \(b))"
+    }
+
+    /// macOS füllt `applicationIconImage` für Menu-Bar-Apps nicht
+    /// immer zuverlässig — daher zuerst aus dem Asset-Catalog laden,
+    /// dann fallback.
+    private var appIconImage: NSImage? {
+        if let asset = NSImage(named: "AppIcon") { return asset }
+        return NSApp.applicationIconImage
+    }
+
+    var body: some View {
+        Card(title: "Über ALVA-TEXT",
+             subtitle: "Version, Datenschutz und Lizenzbedingungen",
+             icon: "info.circle.fill",
+             accent: .blue) {
+            HStack(alignment: .top, spacing: 16) {
+                if let icon = appIconImage {
+                    Image(nsImage: icon)
+                        .resizable()
+                        .interpolation(.high)
+                        .frame(width: 64, height: 64)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("ALVA-TEXT")
+                        .font(.title3.weight(.semibold))
+                    Text(versionText)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.seal.fill")
+                            .foregroundStyle(.green)
+                            .font(.caption)
+                        Text("Apple-notarisiert · signiert von AdPolis GmbH")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 2)
+                }
+                Spacer(minLength: 0)
+            }
+
+            Divider().padding(.vertical, 4)
+
+            HStack(spacing: 16) {
+                Link("Datenschutz",
+                     destination: URL(string: "https://adluna.de/datenschutz")!)
+                Link("AGB",
+                     destination: URL(string: "https://adluna.de/agb")!)
+                Link("Lizenzen Dritter",
+                     destination: URL(string: "https://adluna.de/lizenzen")!)
+                Spacer()
+                Text("© 2026 AdLuna GmbH")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .font(.callout)
+        }
+    }
+}
+
+/// Kompakter Gravatar-Hinweis direkt unter der Account-Statuszeile.
+/// Nur sichtbar wenn der Nutzer aktiviert ist (sonst gibt es keinen
+/// Avatar zu konfigurieren). Vorher als prominente Card im Account-
+/// Tab — dort entfernt, hier kompakt platziert.
+private struct GravatarHintRow: View {
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "person.crop.circle.dashed")
+                .foregroundStyle(.secondary)
+                .font(.callout)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Dein Profilbild kommt von Gravatar — einem weltweiten Avatar-Dienst, der dein Bild mit deiner E-Mail verknüpft.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Link("Eigenes Bild bei gravatar.com einrichten",
+                     destination: URL(string: "https://gravatar.com")!)
+                    .font(.caption)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 4)
+    }
+}
+
+/// Erklär-Kachel zum lokalen Betrieb. Adressiert die wichtigste
+/// Sorge der Zielgruppe („Wo gehen meine Daten hin?") direkt im
+/// Allgemein-Tab und macht klar, wofür Internet überhaupt benötigt
+/// wird.
+private struct LocalProcessingHintCard: View {
+    var body: some View {
+        Card(title: "Lokal auf deinem Mac",
+             subtitle: "Internet nur für Aktivierung und Updates",
+             icon: "lock.shield.fill",
+             accent: .green) {
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Komplett lokal über Whisper:", systemImage: "checkmark.seal.fill")
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.green)
+                Text("Deutsches Diktat (Standard-Modus) und die direkte Übersetzung ins Englische funktionieren komplett offline — die Audio-Daten verlassen deinen Mac nicht.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Divider().padding(.vertical, 2)
+
+                Label("Internet-Verbindung wird benötigt für:", systemImage: "network")
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.secondary)
+                Text("die einmalige Aktivierung, optionale OpenAI-Funktionen (Höflich-/Nachrichten-Modus, Übersetzung in andere Zielsprachen außer Englisch) und die Update-Prüfung.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
+// MARK: - Shortcuts
+
+private struct ShortcutsTab: View {
     @EnvironmentObject var coordinator: AppCoordinator
 
     var body: some View {
@@ -262,24 +349,20 @@ private struct ModesTab: View {
     }
 }
 
-// MARK: - Sprachübersetzung
+// MARK: - Sprachen
 
-private struct TranslationTab: View {
+/// Sprachen-Tab. Konfiguriert Sprach-Zuweisungen für die F-Tasten-
+/// Schnellumschaltung und die Rückwärtsübersetzung. Der frühere
+/// Permission-Block ganz oben wurde nach v2.1.2 in den Tab
+/// „Systemfreigaben" verschoben — dort ist die Einrichtung der
+/// Eingabeüberwachung zentral mit allen anderen System-Setups
+/// gebündelt.
+private struct LanguagesTab: View {
     @EnvironmentObject var coordinator: AppCoordinator
-    @State private var inputMonitoringTick: Int = 0
 
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
-                if !coordinator.inputMonitoringTrusted {
-                    PermissionIntroBanner(
-                        title: "Wir brauchen deine Mithilfe",
-                        text: "Damit F-Tasten für die Sprach-Übersetzung und die Rückwärtsübersetzung funktionieren, musst du unten die Eingabeüberwachung freigeben. Das ist nur einmal nötig."
-                    )
-                }
-
-                InputMonitoringCard(tick: $inputMonitoringTick)
-
                 LanguageBindingsCard()
 
                 Card(title: "Defaults", icon: "arrow.uturn.backward", accent: .gray) {
@@ -311,6 +394,11 @@ private struct InputMonitoringCard: View {
             trustedLabel: "F-Tasten für Sprachwahl und ⌃⌥Return für Rückwärtsübersetzung werden erkannt.",
             missingLabel: "Ohne diese Erlaubnis sehen wir keine Tasten-Events anderer Apps. F-Tasten, Any-Key-Stop und Rückwärtsübersetzung bleiben stumm.",
             primaryAction: {
+                // Pending-Flag setzen — falls macOS die App jetzt mit
+                // „Beenden & erneut öffnen" beendet, führt der nächste
+                // Start den User zurück in diesen Permission-Pane.
+                UserDefaults.standard.set("inputMonitoring",
+                                          forKey: AppDelegate.pendingPermissionKey)
                 coordinator.requestInputMonitoringPrompt()
                 coordinator.openInputMonitoringSettings()
             },
@@ -627,37 +715,103 @@ private struct LabeledSlider: View {
 
 // MARK: - Bedienungshilfen
 
-private struct AccessibilityTab: View {
+/// Systemfreigaben-Tab. Bündelt alle einmalig nötigen Setup-Schritte:
+/// macOS-Permissions (Bedienungshilfen, Eingabeüberwachung) plus die
+/// Konfigurations-Kacheln (Transkriptions-Modus, OpenAI-Key, Autostart,
+/// Verhalten, Verlauf-Aufzeichnung). Ziel: Ein einziger Tab beantwortet
+/// die Frage „Was muss ich an meinem Rechner einrichten, damit ALVA
+/// volle Funktionalität bietet?"
+private struct SystemTab: View {
     @EnvironmentObject var coordinator: AppCoordinator
-    @State private var showHelp: Bool = false
+    @State private var showAccessibilityHelp: Bool = false
+    @State private var inputMonitoringTick: Int = 0
 
     var body: some View {
-        let trusted = coordinator.accessibilityTrusted
+        let accessibilityTrusted = coordinator.accessibilityTrusted
+        let inputMonitoringTrusted = coordinator.inputMonitoringTrusted
+        let anyMissing = !accessibilityTrusted || !inputMonitoringTrusted
+
         ScrollView {
             VStack(spacing: 14) {
-                if !trusted {
+                // Setup-Erklärtext
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "info.circle.fill")
+                        .foregroundStyle(.secondary)
+                        .font(.callout)
+                    Text("Damit ALVA-TEXT alle Funktionen nutzen kann, sind einige systemseitige Freigaben und Konfigurationen nötig. Sie werden einmal eingerichtet und gelten dauerhaft.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 4)
+
+                if anyMissing {
                     PermissionIntroBanner(
                         title: "Wir brauchen deine Mithilfe",
-                        text: "Damit ALVA den transkribierten Text automatisch in die fokussierte App einfügen kann, musst du unten die Freigabe in den macOS-Systemeinstellungen aktivieren. Das ist nur einmal nötig."
+                        text: "Aktiviere die noch fehlenden Freigaben unten. Bei der Eingabeüberwachung kann macOS nach dem Aktivieren um einen Neustart der App bitten — das ist normal."
                     )
                 }
 
+                // 1) Eingabeüberwachung (für F-Tasten + Rückwärtsübersetzung)
+                InputMonitoringCard(tick: $inputMonitoringTick)
+
+                // 2) Bedienungshilfen (für Auto-Einfügen)
                 PermissionCard(
                     title: "Bedienungshilfen",
                     subtitle: "Ermöglicht automatisches Einfügen",
-                    trusted: trusted,
+                    trusted: accessibilityTrusted,
                     trustedLabel: "Auto-Einfügen ist aktiv.",
                     missingLabel: "Auto-Einfügen deaktiviert — Texte landen nur in der Zwischenablage.",
                     primaryAction: {
+                        // Pending-Flag setzen — falls die App nach Permission
+                        // erneut starten muss, kommt der User zurück in diesen
+                        // Pane (Bedienungshilfen braucht den Restart selten,
+                        // aber für Konsistenz machen wir es einheitlich).
+                        UserDefaults.standard.set("accessibility",
+                                                  forKey: AppDelegate.pendingPermissionKey)
                         coordinator.requestAccessibilityPrompt()
                         coordinator.openAccessibilitySettings()
                     },
                     primaryLabel: "Jetzt freigeben",
-                    secondaryAction: trusted ? { coordinator.runPasteSelfTest() } : nil,
+                    secondaryAction: accessibilityTrusted ? { coordinator.runPasteSelfTest() } : nil,
                     secondaryLabel: "Testeinfügung",
-                    helpExpanded: $showHelp,
+                    helpExpanded: $showAccessibilityHelp,
                     helpText: "ALVA simuliert beim automatischen Einfügen einen ⌘V-Tastendruck über die Accessibility-API. macOS erlaubt das nur Apps, die ausdrücklich unter Systemeinstellungen → Datenschutz & Sicherheit → Bedienungshilfen freigegeben sind. Nach Xcode-Rebuilds ändert sich die App-Signatur; dann den alten Eintrag mit „−\" entfernen und die neu gebaute App erneut hinzufügen."
                 )
+
+                // 3) OpenAI-Schlüssel
+                Card(title: "OpenAI-Schlüssel (optional)",
+                     subtitle: "Nur für Höflich, Nachricht und Sprach-Übersetzung",
+                     icon: "key.fill",
+                     accent: .blue) {
+                    SecureField("sk-… (leer lassen für reinen Lokalbetrieb)", text: $coordinator.apiKey)
+                        .textFieldStyle(.roundedBorder)
+                    Text("Ohne Schlüssel funktioniert der Standard-Modus (reines Transkript) vollständig lokal. Für Umformulierungen und Übersetzungen wird ein Schlüssel von platform.openai.com benötigt. Der Schlüssel wird lokal im macOS-Schlüsselbund gespeichert.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                // 4) Beim Start (Autostart)
+                Card(title: "Beim Start", subtitle: "Autostart und Einrichtung", icon: "power.circle.fill", accent: .teal) {
+                    Toggle("ALVA-TEXT bei Login automatisch starten", isOn: Binding(
+                        get: { coordinator.isLaunchAtLoginEnabled },
+                        set: { coordinator.setLaunchAtLogin($0) }
+                    ))
+                    HStack {
+                        Button("Einrichtung erneut starten …") {
+                            coordinator.showOnboardingWindow()
+                        }
+                        Spacer()
+                    }
+                }
+
+                // 5) Verhalten
+                Card(title: "Verhalten", subtitle: "Standardaktionen nach der Transkription", icon: "gearshape.2.fill", accent: .gray) {
+                    Toggle("Nach Transkription automatisch einfügen", isOn: $coordinator.autoPaste)
+                    Toggle("Höfliche Umformulierung im Höflich-Modus", isOn: $coordinator.rewriteEnabled)
+                }
             }
             .padding(2)
         }
@@ -706,6 +860,7 @@ private struct PermissionIntroBanner: View {
 /// OS has probably kept an older signature and the entry needs to be
 /// removed and re-added.
 private struct PermissionCard: View {
+    @EnvironmentObject var coordinator: AppCoordinator
     let title: String
     let subtitle: String
     let trusted: Bool
@@ -750,17 +905,31 @@ private struct PermissionCard: View {
             }
 
             if isStale {
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "lightbulb.fill")
-                        .foregroundStyle(.orange)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Sieht aus, als wäre der Eintrag schon da, aber nicht aktiv?")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                        Text("Dann ist der Eintrag von einer älteren App-Version. Einmal per „−\" entfernen und die App (jetzt die aktuelle Version) wieder per „+\" hinzufügen. Aktiviert sich dann automatisch.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "lightbulb.fill")
+                            .foregroundStyle(.orange)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Toggle ist gesetzt, wird aber nicht erkannt?")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                            Text("Möglich 1: Der Eintrag stammt von einer älteren App-Version — einmal per „−\" entfernen und die aktuelle App per „+\" wieder hinzufügen.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Text("Möglich 2: macOS hat den frischen Berechtigungs-Status noch nicht zur App durchgereicht — einmal ALVA-TEXT neu starten.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    HStack {
+                        Button("ALVA-TEXT neu starten") {
+                            coordinator.restartApp()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        Spacer()
                     }
                 }
                 .padding(10)
@@ -1223,6 +1392,8 @@ struct OnboardingView: View {
                     "Falls ALVA-TEXT nicht in der Liste steht: unten auf „+\" klicken und im Finder ALVA-TEXT.app auswählen.",
                     "Zurück zu diesem Fenster → „Erneut prüfen\" → Ampel wird grün."
                 ])
+
+                tccCacheRestartHint()
             }
 
             HStack {
@@ -1240,6 +1411,43 @@ struct OnboardingView: View {
             }
             .buttonStyle(.bordered)
         }
+    }
+
+    /// Erklär-Block, der bei TCC-Permissions-Pages erscheint, falls die
+    /// Permission noch nicht erkannt wurde. macOS' `AXIsProcessTrusted()`
+    /// (und analog der Input-Monitoring-Check) cached den Trust-Status pro
+    /// Prozess — selbst wenn der User in den Systemeinstellungen den Toggle
+    /// umlegt, sieht der laufende ALVA-Prozess das oft nicht zuverlässig.
+    /// Workaround: einmal die App neu starten.
+    @ViewBuilder
+    private func tccCacheRestartHint() -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "arrow.clockwise.circle.fill")
+                .font(.title3)
+                .foregroundStyle(.blue)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Toggle ist gesetzt, aber wird nicht erkannt?")
+                    .font(.caption.weight(.semibold))
+                Text("macOS aktualisiert den Berechtigungs-Status manchmal erst nach einem App-Neustart. Klick einmal auf „ALVA-TEXT neu starten\" — danach erkennt die App die Berechtigung sofort.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("ALVA-TEXT neu starten") {
+                    coordinator.restartApp()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .padding(.top, 2)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 8).fill(Color.blue.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8).stroke(Color.blue.opacity(0.3), lineWidth: 1)
+        )
     }
 
     @ViewBuilder
@@ -1264,11 +1472,12 @@ struct OnboardingView: View {
             if !trusted {
                 permissionSteps(steps: [
                     "Auf „Systemeinstellungen öffnen\" klicken — landet bei „Eingabeüberwachung\".",
-                    "Unten auf „+\" klicken, im Finder ALVA-TEXT.app auswählen und hinzufügen.",
-                    "Schalter rechts neben ALVA-TEXT aktivieren.",
-                    "macOS fragt eventuell, ob die App neu gestartet werden soll → bestätigen.",
+                    "Schalter rechts neben ALVA-TEXT aktivieren (sollte dort schon mit Toggle gelistet sein).",
+                    "Falls macOS „Beenden & erneut öffnen\" anbietet → bestätigen.",
                     "Zurück zu diesem Fenster → „Erneut prüfen\" → Ampel wird grün."
                 ])
+
+                tccCacheRestartHint()
             }
 
             HStack {
@@ -1282,10 +1491,25 @@ struct OnboardingView: View {
             }
             .buttonStyle(.bordered)
 
-            Text("Hinweis: Nach dem Aktivieren in den Systemeinstellungen muss ALVA-TEXT einmal beendet und neu gestartet werden. Bei Dev-Builds (aus Xcode) kann es nötig sein, einen bereits vorhandenen alten ALVA-TEXT-Eintrag per „−\" zu entfernen und neu hinzuzufügen.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .padding(.top, 4)
+            if trusted {
+                // macOS-Inkonsistenz: IOHIDCheckAccess() liefert "granted",
+                // aber die UI-Liste in Systemeinstellungen → Eingabe-
+                // überwachung kann trotzdem leer sein. Beide lesen aus
+                // der gleichen TCC-DB, aber die UI-Liste filtert manchmal
+                // alte/migrierte Einträge raus. Funktional ist das egal —
+                // wenn die App "freigegeben" zeigt, klappt das Mitlesen.
+                Label("macOS zeigt Eingabeüberwachung-Apps in der Systemeinstellungs-Liste manchmal nicht an, obwohl die Berechtigung erteilt ist. Solange ALVA „Eingabeüberwachung ist freigegeben\" anzeigt, funktioniert alles.",
+                      systemImage: "info.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 4)
+            } else {
+                Text("Hinweis: Nach dem Aktivieren in den Systemeinstellungen muss ALVA-TEXT einmal beendet und neu gestartet werden. Bei Dev-Builds (aus Xcode) kann es nötig sein, einen bereits vorhandenen alten ALVA-TEXT-Eintrag per „−\" zu entfernen und neu hinzuzufügen.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 4)
+            }
         }
     }
 
@@ -1588,6 +1812,7 @@ private struct LanguageBlock: View {
 /// einen manuellen Refresh. Trial-Countdown wird live aus `trialExpiresAt`
 /// gerechnet. Der Activation-Flow öffnet sich als Sheet.
 private struct AccountTab: View {
+    @EnvironmentObject var coordinator: AppCoordinator
     @StateObject private var license = LicenseState.shared
     @State private var showActivation = false
     @State private var isRefreshing = false
@@ -1596,6 +1821,9 @@ private struct AccountTab: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
+                if isActivated && coordinator.hasIncompletePermissions {
+                    nextStepCard
+                }
                 statusCard
                 trialCard
                 actionsCard
@@ -1608,6 +1836,82 @@ private struct AccountTab: View {
         .sheet(isPresented: $showActivation) {
             ActivationView(state: license)
         }
+        .onChange(of: license.phase) { oldPhase, newPhase in
+            // Direkt nach erfolgreicher Aktivierung: Wenn noch Permissions
+            // fehlen, das Onboarding-Window zeigen — es führt den User
+            // aktiv durch Bedienungshilfen + Eingabeüberwachung. Ohne
+            // diesen Trigger landet der User im Account-Tab mit „Beta
+            // aktiv" und merkt erst beim ersten Hotkey-Versuch, dass
+            // noch Setup nötig ist.
+            //
+            // Trigger nur beim echten Wechsel non-active → active, nicht
+            // bei active-internen Updates (z.B. periodischer Refresh des
+            // Status-Strings, wenn schon aktiv).
+            let wasActive: Bool = { if case .active = oldPhase { return true } else { return false } }()
+            let isActive: Bool = { if case .active = newPhase { return true } else { return false } }()
+            if !wasActive && isActive && coordinator.hasIncompletePermissions {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    coordinator.showOnboardingWindow()
+                }
+            }
+        }
+    }
+
+    /// Auffälliger Block im Account-Tab, wenn die App aktiviert ist, aber
+    /// Bedienungshilfen oder Eingabeüberwachung noch fehlen. Backup falls
+    /// der User das Onboarding-Window geschlossen hat oder Permissions
+    /// später durch macOS-Updates / `tccutil reset` verloren gegangen sind.
+    private var nextStepCard: some View {
+        Card(title: "Nächster Schritt: Berechtigungen erteilen",
+             subtitle: "Setup ist noch nicht vollständig",
+             icon: "exclamationmark.shield.fill",
+             accent: .orange) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Du bist aktiviert — aber damit ALVA Auto-Einfügen, F-Tasten-Sprachwahl und Rückwärtsübersetzung tatsächlich nutzen kann, müssen noch zwei macOS-Berechtigungen freigegeben werden.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 12) {
+                    permissionStatusRow(label: "Bedienungshilfen",
+                                        granted: coordinator.accessibilityTrusted)
+                    permissionStatusRow(label: "Eingabeüberwachung",
+                                        granted: coordinator.inputMonitoringTrusted)
+                }
+
+                HStack {
+                    Button {
+                        coordinator.settingsRequestedTab = "system"
+                    } label: {
+                        Label("Zu Systemfreigaben", systemImage: "shield.lefthalf.filled")
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button("Einrichtungs-Assistent öffnen") {
+                        coordinator.showOnboardingWindow()
+                    }
+                    .buttonStyle(.bordered)
+                    Spacer()
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func permissionStatusRow(label: String, granted: Bool) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: granted ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                .foregroundStyle(granted ? .green : .orange)
+                .font(.caption)
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(granted ? .secondary : .primary)
+        }
+    }
+
+    private var isActivated: Bool {
+        if case .active = license.phase { return true }
+        return false
     }
 
     // MARK: Cards
@@ -1730,8 +2034,12 @@ private struct AccountTab: View {
         case .loading:         return "Wird geprüft…"
         case .needsActivation: return "Nicht aktiviert"
         case .active(let status, _, _):
+            // Backend liefert technische Status-Strings ("beta", "trial",
+            // "active"). Im UI nutzen wir neutralere Begriffe — "Beta"
+            // klingt nach Entwicklungsphase, was ALVA-TEXT inhaltlich
+            // schon längst verlassen hat.
             switch status {
-            case "beta":   return "Beta aktiv"
+            case "beta":   return "Aktiv"
             case "trial":  return "Testzeitraum aktiv"
             case "active": return "Lizenz aktiv"
             default:       return status.capitalized
@@ -1828,6 +2136,81 @@ private struct AccountTab: View {
             feedback = "Check fehlgeschlagen: \(msg)"
         } else {
             feedback = "Status aktualisiert."
+        }
+    }
+}
+
+// MARK: - Verlauf
+
+/// Verlauf-Tab. Zeigt den Master-Toggle für die Verlaufs-Aufzeichnung,
+/// gefolgt vom letzten Transkript, der letzten Umformulierung und einem
+/// Button zum vollständigen Verlauf-Fenster. Wird in v2.1.2 schrittweise
+/// gefüllt — der Inhalt wandert aus StatusTab + GeneralTab hierher.
+private struct HistoryTab: View {
+    @EnvironmentObject var coordinator: AppCoordinator
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 14) {
+                // Master-Toggle ganz oben — ein/aus für die gesamte
+                // Protokollierung. Wenn aus, werden keine neuen Einträge
+                // angelegt (alte bleiben aber bestehen, bis der Nutzer
+                // sie löscht).
+                Card(title: "Aufzeichnung",
+                     subtitle: "Letzte \(AppCoordinator.maxHistoryEntries) Einträge",
+                     icon: "clock.fill",
+                     accent: .indigo) {
+                    Toggle("Transkripte und Umformulierungen aufzeichnen",
+                           isOn: $coordinator.historyEnabled)
+                    HStack {
+                        Button("Vollständigen Verlauf öffnen …") {
+                            coordinator.openHistoryWindow()
+                        }
+                        Button("Verlauf komplett löschen") {
+                            coordinator.clearHistory()
+                        }
+                        .foregroundStyle(.red)
+                        .disabled(coordinator.history.isEmpty)
+                        Spacer()
+                        Text("\(coordinator.history.count) Einträge")
+                            .foregroundStyle(.secondary)
+                            .font(.caption)
+                    }
+                }
+
+                // Letztes Transkript
+                Card(title: "Letztes Transkript",
+                     icon: "doc.plaintext",
+                     accent: .blue) {
+                    if !coordinator.lastTranscript.isEmpty {
+                        Text(coordinator.lastTranscript)
+                            .font(.callout)
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Text("Noch kein Transkript in dieser Sitzung.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                // Letzte Umformulierung
+                Card(title: "Letzte Umformulierung",
+                     icon: "text.badge.checkmark",
+                     accent: .green) {
+                    if !coordinator.lastRewrittenText.isEmpty {
+                        Text(coordinator.lastRewrittenText)
+                            .font(.callout)
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Text("Noch keine Umformulierung in dieser Sitzung.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(2)
         }
     }
 }
@@ -2024,8 +2407,11 @@ private struct AccountStatusHeader: View {
 
     private func statusText(status: String, tier: LicenseState.Tier) -> String {
         let statusPart: String = {
+            // Identisch zu `AccountTab.statusHeadline`: backend-Strings
+            // ("beta") werden im UI auf neutrale Begriffe gemappt, damit
+            // der User die App nicht als „in Entwicklung" wahrnimmt.
             switch status {
-            case "beta":   return "Beta aktiv"
+            case "beta":   return "Aktiv"
             case "trial":  return "Testzeitraum"
             case "active": return "Lizenz aktiv"
             default:       return status.capitalized

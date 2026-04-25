@@ -505,16 +505,15 @@ final class AppCoordinator: ObservableObject {
 
     private func refreshPermissionStates() {
         let ax = AXIsProcessTrusted()
+        var permissionJustGranted = false
+
         if ax != accessibilityTrusted {
             let justGrantedAX = !accessibilityTrusted && ax
             accessibilityTrusted = ax
             if justGrantedAX {
-                // User just flipped the switch in System Settings →
-                // install the CGEventTap now so F-key sprach-override
-                // and ⌃⌥Return reverse-translate start working without
-                // requiring a full app restart.
                 hotkeys.reinstallEventTapIfNeeded()
-                print("ALVA: Accessibility granted at runtime, reinstalled CGEventTap")
+                print("ALVA: Accessibility granted at runtime")
+                permissionJustGranted = true
             }
         }
         let im = pasteService.hasInputMonitoringPermission
@@ -523,26 +522,90 @@ final class AppCoordinator: ObservableObject {
             inputMonitoringTrusted = im
             if justGrantedIM {
                 hotkeys.reinstallEventTapIfNeeded()
-                print("ALVA: Input-Monitoring granted at runtime, reinstalled CGEventTap")
+                print("ALVA: Input-Monitoring granted at runtime")
+                permissionJustGranted = true
             }
+        }
+
+        // Auto-Restart nur dann triggern, wenn der User EXPLIZIT eine
+        // Permission angefordert hat (über „Jetzt freigeben"-Button).
+        // Reine Polling-Wechsel ohne User-Aktion (z.B. beim Erststart,
+        // wenn AXIsProcessTrusted() seinen Cache erst synchronisiert)
+        // dürfen NICHT zu Auto-Restart führen — das wäre eine Endlos-
+        // schleife: Restart → frischer Prozess → Cache-Sync → Wechsel
+        // detektiert → Restart → ...
+        if permissionJustGranted && awaitingPermissionGrant && !isInRestartCooldown() {
+            awaitingPermissionGrant = false
+            scheduleAutoRestart()
+        }
+    }
+
+    /// True während ein Auto-Restart bereits geplant ist — verhindert
+    /// doppelten Auto-Restart, wenn beide Permissions kurz hintereinander
+    /// erteilt werden.
+    private var pendingAutoRestart: Bool = false
+
+    /// Wird auf true gesetzt, wenn der User explizit eine Permission
+    /// angefordert hat (Klick auf „Jetzt freigeben" / „Erlaubnis erteilen").
+    /// Nach erfolgreicher Erteilung wieder auf false zurückgesetzt.
+    /// Schützt vor Auto-Restart-Schleifen bei reinen Cache-Synchronisations-
+    /// Wechseln im Polling.
+    var awaitingPermissionGrant: Bool = false
+
+    /// UserDefaults-Key für den Zeitpunkt des letzten Auto-Restarts.
+    /// Dient als 30-Sekunden-Cooldown, damit selbst bei Race-Conditions
+    /// keine Restart-Schleife entstehen kann.
+    private static let lastAutoRestartKey = "ALVA.lastAutoRestart"
+
+    /// True, wenn weniger als 30 s seit dem letzten Auto-Restart vergangen
+    /// sind. In dieser Zeit blockt `refreshPermissionStates()` jeden
+    /// weiteren Auto-Restart-Versuch.
+    private func isInRestartCooldown() -> Bool {
+        guard let last = UserDefaults.standard.object(forKey: Self.lastAutoRestartKey) as? Date else {
+            return false
+        }
+        return Date().timeIntervalSince(last) < 30
+    }
+
+    /// Plant einen automatischen App-Restart, sobald eine Permission
+    /// frisch erteilt wurde. Behebt das macOS-TCC-Cache-Problem
+    /// (`AXIsProcessTrusted()` liefert für die laufende Prozess-Instanz
+    /// oft den alten Wert) und stellt sicher, dass alle Subsysteme
+    /// (CGEventTap, PasteService) mit dem aktualisierten Trust-Status
+    /// frisch initialisiert werden.
+    private func scheduleAutoRestart() {
+        guard !pendingAutoRestart else { return }
+        pendingAutoRestart = true
+        UserDefaults.standard.set(Date(), forKey: Self.lastAutoRestartKey)
+        print("ALVA: scheduling auto-restart in 2 s after user-initiated permission grant")
+
+        // 2 s Delay damit:
+        // (a) macOS den TCC-Status committen kann
+        // (b) der User einen kurzen visuellen Bestätigung-Moment hat
+        //     (Status-Anzeige im UI flippt von rot auf grün, dann erst
+        //     restart) — gibt das Gefühl „okay es hat geklappt".
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            guard let self = self else { return }
+            self.restartApp()
         }
     }
 
     func requestPermissions() {
         recorder.requestPermission()
 
+        // Bedienungshilfen: Idempotent rufen — macOS zeigt den Dialog
+        // sowieso nur einmal. Der frühere `didPromptAccessibility`-
+        // UserDefaults-Flag verhinderte einen erneuten Aufruf nach
+        // `tccutil reset`, was zu „App ist nicht in der Liste"-Bugs führte.
         if !AXIsProcessTrusted() {
-            let didPrompt = UserDefaults.standard.bool(forKey: "didPromptAccessibility")
-            if !didPrompt {
-                let options = [kAXTrustedCheckOptionPrompt.takeRetainedValue() as String: true] as CFDictionary
-                _ = AXIsProcessTrustedWithOptions(options)
-                UserDefaults.standard.set(true, forKey: "didPromptAccessibility")
-            }
+            let options = [kAXTrustedCheckOptionPrompt.takeRetainedValue() as String: true] as CFDictionary
+            _ = AXIsProcessTrustedWithOptions(options)
         }
 
-        // Input-Monitoring is needed for CGEventTap to receive key-down
-        // events in macOS 10.15+. Prompt the first time; afterwards the
-        // user has to enable it manually in System Settings.
+        // Eingabeüberwachung: gleiche Idempotenz. IOHIDRequestAccess()
+        // registriert die App garantiert in der TCC-Datenbank — nach
+        // diesem Aufruf taucht ALVA-TEXT in den Systemeinstellungen ->
+        // Eingabeüberwachung mit Toggle auf, statt nur per „+" hinzufügbar.
         if !pasteService.hasInputMonitoringPermission {
             _ = pasteService.requestInputMonitoringPermission()
         }
@@ -924,15 +987,22 @@ final class AppCoordinator: ObservableObject {
     }
 
     func openAccessibilitySettings() {
+        // User hat explizit eine Permission-Action ausgelöst — Flag setzen,
+        // damit refreshPermissionStates() Auto-Restart triggern darf.
+        awaitingPermissionGrant = true
         pasteService.openAccessibilitySettings()
     }
 
     /// Triggers the macOS system dialog that asks the user to enable
-    /// Accessibility for ALVA-TEXT. Use this right after a rebuild or when
+    /// Accessibility for ALVA-TEXT. Sets `awaitingPermissionGrant=true` —
+    /// dadurch darf `refreshPermissionStates()` einen Auto-Restart triggern,
+    /// sobald die Permission tatsächlich erteilt wird.
+    /// Use this right after a rebuild or when
     /// the user clicks the "Erlaubnis anfordern" button.
     @discardableResult
     func requestAccessibilityPrompt() -> Bool {
-        pasteService.promptForAccessibility()
+        awaitingPermissionGrant = true
+        return pasteService.promptForAccessibility()
     }
 
     // MARK: - Input Monitoring (for F-key detection)
@@ -943,11 +1013,48 @@ final class AppCoordinator: ObservableObject {
 
     @discardableResult
     func requestInputMonitoringPrompt() -> Bool {
-        pasteService.requestInputMonitoringPermission()
+        awaitingPermissionGrant = true
+        return pasteService.requestInputMonitoringPermission()
     }
 
     func openInputMonitoringSettings() {
+        awaitingPermissionGrant = true
         pasteService.openInputMonitoringSettings()
+    }
+
+    /// Beendet ALVA-TEXT und startet eine neue Instanz. Notwendiger
+    /// Workaround für ein bekanntes macOS-Problem: `AXIsProcessTrusted()`
+    /// cached den Trust-Status pro Prozess — wenn der User die
+    /// Bedienungshilfen-Permission in den Systemeinstellungen erteilt,
+    /// erkennt der laufende Prozess das oft nicht zuverlässig. Erst nach
+    /// einem Neustart liest macOS den frischen TCC-Status.
+    ///
+    /// Mechanik: `open -n <bundlePath>` startet eine zweite Instanz; die
+    /// `terminateOlderInstances()`-Logik im AppDelegate killt dann automatisch
+    /// die alte. Als Sicherheits-Fallback terminieren wir uns selbst nach
+    /// einer Sekunde, falls die neue Instanz zu langsam aufwacht.
+    func restartApp() {
+        // Systemeinstellungen-Fenster auch zumachen, falls es noch offen
+        // ist — sonst bleibt es nach dem Auto-Restart als „loses Ende" auf
+        // dem Bildschirm stehen. Wir killen System Settings nur dann, wenn
+        // wir gerade einen Permission-bedingten Auto-Restart machen.
+        for app in NSWorkspace.shared.runningApplications
+        where app.bundleIdentifier == "com.apple.systempreferences" {
+            app.terminate()
+        }
+
+        let bundlePath = Bundle.main.bundlePath
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        task.arguments = ["-n", bundlePath]
+        do {
+            try task.run()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                NSApp.terminate(nil)
+            }
+        } catch {
+            print("ALVA: restartApp failed: \(error)")
+        }
     }
 
     // MARK: - History window
@@ -992,6 +1099,16 @@ final class AppCoordinator: ObservableObject {
 
     var shouldShowOnboarding: Bool {
         !UserDefaults.standard.bool(forKey: "hasSeenOnboarding")
+    }
+
+    /// True, wenn dem User noch Setup-Schritte fehlen (Bedienungshilfen
+    /// oder Eingabeüberwachung nicht freigegeben). Wird im AccountTab
+    /// nach erfolgreicher Aktivierung geprüft, um das Onboarding-Window
+    /// erneut zu zeigen und den User aktiv zu den Systemfreigaben zu
+    /// führen — verhindert die Falle „Aktivierung erfolgreich, alles
+    /// grün, aber Hotkeys funktionieren nicht, weil Permissions fehlen".
+    var hasIncompletePermissions: Bool {
+        !accessibilityTrusted || !inputMonitoringTrusted
     }
 
     func showOnboardingIfNeeded() {
