@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALVA-TEXT — Anleitung &amp; Bedienung</title>
+    <meta name="description" content="Vollständige Anleitung für ALVA-TEXT: Installation, Hotkeys, Workflows, Einstellungen, Troubleshooting. Für macOS-Nutzer ab Sequoia.">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles-v3.css">
+    <style>
+        .manual-toc {
+            background: var(--pipely-bg-alt);
+            border: 1px solid var(--pipely-line);
+            border-radius: 10px;
+            padding: 1.5rem 1.75rem;
+            margin: 2rem 0 3rem;
+        }
+        .manual-toc h3 {
+            font-family: var(--font-serif);
+            font-size: 0.95rem;
+            font-weight: 500;
+            margin: 0 0 0.75rem;
+            color: var(--pipely-text);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .manual-toc ol {
+            list-style: decimal-leading-zero;
+            margin: 0; padding-left: 2.2rem;
+            columns: 2;
+            column-gap: 2rem;
+        }
+        .manual-toc ol li {
+            margin: 0.3rem 0;
+            font-size: 0.95rem;
+            break-inside: avoid;
+        }
+        @media (max-width: 600px) { .manual-toc ol { columns: 1; } }
+
+        .hotkey-table { width: 100%; }
+        .hotkey-table kbd {
+            display: inline-block;
+            padding: 0.15rem 0.5rem;
+            border-radius: 5px;
+            background: #f4f1ea;
+            border: 1px solid var(--pipely-line);
+            border-bottom-width: 2px;
+            font-family: var(--font-mono, "SF Mono", Menlo, monospace);
+            font-size: 0.82rem;
+            color: var(--pipely-text);
+            margin: 0 1px;
+        }
+        .callout {
+            border-left: 3px solid var(--pipely-accent);
+            background: var(--pipely-accent-soft);
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 0 6px 6px 0;
+        }
+        .callout p { margin: 0; }
+        .callout strong { color: var(--pipely-accent); }
+
+        .callout.warn { border-left-color: #B8860B; background: #FFF8E1; }
+        .callout.warn strong { color: #8A6D0B; }
+
+        details.faq {
+            border-bottom: 1px solid var(--pipely-line);
+            padding: 1rem 0;
+        }
+        details.faq summary {
+            cursor: pointer;
+            font-weight: 500;
+            color: var(--pipely-text);
+            font-size: 1.02rem;
+        }
+        details.faq[open] summary { color: var(--pipely-accent); }
+        details.faq p { margin-top: 0.6rem; }
+    </style>
+</head>
+<body>
+
+<nav class="v3-nav" id="v3-nav">
+    <div class="v3-nav-inner">
+        <a href="index.html" class="v3-nav-brand">
+            <img class="v3-logo-mark" src="assets/logo/AdLuna-Logo-solo-dunkel-512.png" alt="AdLuna" width="52" height="52">
+            <span>AdLuna</span>
+        </a>
+        <ul class="v3-nav-links">
+            <li><a href="produkte.html">Produkte</a></li>
+            <li><a href="alva-text.html">ALVA-TEXT</a></li>
+            <li><a href="manifest.html">Manifest</a></li>
+            <li><a href="index.html#kontakt">Kontakt</a></li>
+        </ul>
+    </div>
+</nav>
+
+<article class="v3-article">
+    <div class="v3-reading">
+        <span class="v3-eyebrow v3-eyebrow-accent">Anleitung &amp; Bedienung</span>
+        <h1 class="v3">ALVA-TEXT — von der Installation bis zum täglichen Workflow.</h1>
+        <p class="v3-lead">Diese Anleitung deckt den Stand von <strong>v2.1.3 (Build 22)</strong> ab und nennt jeweils, was sich mit <strong>v2.2</strong> ändert. Wenn etwas fehlt oder unklar ist: <a href="mailto:support@adluna.de">support@adluna.de</a>.</p>
+
+        <div class="manual-toc">
+            <h3>Inhalt</h3>
+            <ol>
+                <li><a href="#was">Was ist ALVA-TEXT?</a></li>
+                <li><a href="#install">Installation</a></li>
+                <li><a href="#onboarding">Erstes Onboarding</a></li>
+                <li><a href="#hotkeys">Hotkeys auf einen Blick</a></li>
+                <li><a href="#workflows">Typische Workflows</a></li>
+                <li><a href="#settings">Einstellungen</a></li>
+                <li><a href="#cloud">Cloud-Modi (OpenAI)</a></li>
+                <li><a href="#privacy">Datenschutz im Alltag</a></li>
+                <li><a href="#troubleshooting">Troubleshooting</a></li>
+                <li><a href="#faq">Häufige Fragen</a></li>
+                <li><a href="#v22">Was kommt mit v2.2</a></li>
+                <li><a href="#support">Support &amp; Kontakt</a></li>
+            </ol>
+        </div>
+
+        <h2 class="v3" id="was">1. Was ist ALVA-TEXT?</h2>
+        <p>ALVA-TEXT ist eine Diktat-App für macOS, die in der Menüleiste lebt und sich per Hotkey aktivieren lässt. Sie wandelt Sprache in Text um und fügt diesen direkt dort ein, wo der Cursor steht — egal ob in Mail, Word, Safari oder Terminal.</p>
+        <p>Die Transkription läuft <strong>vollständig lokal auf Ihrem Mac</strong> über das offene Whisper-Modell von OpenAI (MIT-Lizenz). Es gibt keine permanenten Audioaufzeichnungen, keine Telemetrie, keine Cloud-Übertragung im Standardfall. Erst wenn Sie aktiv einen Cloud-Modus aktivieren (z.&nbsp;B. den Adaptive-Message-Modus), verlässt Text — niemals Audio — Ihren Mac.</p>
+
+        <h2 class="v3" id="install">2. Installation</h2>
+        <p>Voraussetzungen: macOS 15 (Sequoia) oder neuer, Apple Silicon (M1 oder neuer), ca. 500&nbsp;MB freier Speicherplatz.</p>
+        <ol>
+            <li>Laden Sie die <a href="https://github.com/Alper-Scheel/alper-scheel/releases/latest/download/ALVA-TEXT.dmg">ALVA-TEXT.dmg</a> oder <a href="https://github.com/Alper-Scheel/alper-scheel/releases/latest/download/ALVA-TEXT.zip">ALVA-TEXT.zip</a> herunter.</li>
+            <li>DMG: Doppelklick öffnet ein Fenster mit App-Symbol und Programme-Ordner-Pfeil. Ziehen Sie die App per Drag&nbsp;&amp;&nbsp;Drop in den Programme-Ordner.</li>
+            <li>ZIP: Doppelklick entpackt die App. Verschieben Sie sie manuell nach <code>/Programme</code>.</li>
+            <li>Starten Sie ALVA-TEXT aus dem Programme-Ordner. Sie sehen das Symbol in der oberen Menüleiste.</li>
+        </ol>
+        <div class="callout warn">
+            <p><strong>Wichtig:</strong> ALVA-TEXT ist mit Apples Developer-ID „AdPolis GmbH" signiert und notarisiert. Das macOS-Sicherheits-Dialogfenster sollte einmalig auftauchen und mit „Öffnen" bestätigt werden. Beim ersten Start ist die App im Wartungsmodus, bis das Whisper-Modell (~470&nbsp;MB) einmalig heruntergeladen ist — das passiert automatisch im Hintergrund.</p>
+        </div>
+
+        <h2 class="v3" id="onboarding">3. Erstes Onboarding</h2>
+        <p>Beim ersten Start führt ALVA-TEXT durch fünf kurze Freigabe-Schritte:</p>
+        <ol>
+            <li><strong>Mikrofon</strong> — wird nur während aktiver Aufnahme genutzt, kein Dauermithören.</li>
+            <li><strong>Bedienungshilfen</strong> — nötig, damit ALVA-TEXT den ⌘V-Tastendruck simulieren kann, um den transkribierten Text einzufügen.</li>
+            <li><strong>Eingabeüberwachung</strong> — nötig, damit ALVA-TEXT auf den globalen Hotkey reagiert, auch wenn andere Apps im Vordergrund sind.</li>
+            <li><strong>Apple-Events-Berechtigung</strong> — wird genutzt, um die zuvor fokussierte App kurz vor dem Einfügen wieder in den Vordergrund zu holen.</li>
+            <li><strong>Aktivierung per E-Mail-Code</strong> — Sie geben Ihre E-Mail ein, erhalten einen 6-stelligen Code und tragen ihn in der App ein. Damit ist die Beta-Aktivierung abgeschlossen.</li>
+        </ol>
+        <p>Nach jeder Berechtigungsfreigabe startet die App einmal kurz neu — das ist macOS-Standard und kein Fehler.</p>
+
+        <h2 class="v3" id="hotkeys">4. Hotkeys auf einen Blick</h2>
+        <p>Alle Hotkeys sind <em>Halten</em>-Tasten, das heißt: Taste gedrückt halten = Aufnahme läuft, Taste loslassen = Transkription wird eingefügt. Das verhindert versehentliche Aufnahmen und macht den Modus-Wechsel intuitiv.</p>
+        <table class="hotkey-table">
+            <thead>
+                <tr><th>Hotkey</th><th>Was passiert</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><kbd>⌃</kbd></td><td><strong>Roh-Diktat:</strong> Wörtliche Whisper-Transkription, lokal, ohne Umformulierung.</td></tr>
+                <tr><td><kbd>⌥</kbd> + <kbd>⌃</kbd></td><td><strong>Adaptive-Message:</strong> Whisper transkribiert, OpenAI formuliert kanaltypisch um (Mail formell, Slack locker, etc.). Cloud, opt-in.</td></tr>
+                <tr><td><kbd>Fn</kbd> + <kbd>F1</kbd>…<kbd>F5</kbd></td><td>Sprache wechseln: F1 EN, F2 FR, F3 IT, F4 ZH, F5 TH (frei konfigurierbar).</td></tr>
+                <tr><td><kbd>⌃</kbd> + <kbd>⌥</kbd> + <kbd>⌘</kbd> + <kbd>L</kbd></td><td><strong>Reverse-Übersetzung:</strong> Markierter Text wird in einer Lightbox ins Deutsche übersetzt.</td></tr>
+                <tr><td><kbd>⌃</kbd> + <kbd>⌥</kbd> + <kbd>⌘</kbd> <em>(v2.2)</em></td><td><strong>Prompt-Optimizer:</strong> Markierten Prompt sauber strukturieren — kommt mit v2.2.</td></tr>
+            </tbody>
+        </table>
+        <div class="callout">
+            <p><strong>Tipp:</strong> Hotkeys lassen sich in den Einstellungen unter „Hotkeys" frei umlegen. Wenn Sie z.&nbsp;B. CapsLock zur Aufnahme-Taste machen wollen — geht.</p>
+        </div>
+
+        <h2 class="v3" id="workflows">5. Typische Workflows</h2>
+
+        <h3 class="v3">5.1 E-Mail in Mail.app oder Outlook</h3>
+        <ol>
+            <li>Cursor in den Mail-Body setzen.</li>
+            <li><kbd>⌥</kbd> + <kbd>⌃</kbd> halten und sprechen: <em>„Hallo Frau Müller, vielen Dank für Ihre Nachricht. Den Vertragsentwurf schicke ich Ihnen morgen früh."</em></li>
+            <li>Loslassen → Adaptive-Message-Modus erkennt: Mail, formell. Text wird sauber eingebaut, mit korrekter Anrede und Absatzstruktur.</li>
+        </ol>
+
+        <h3 class="v3">5.2 Slack/Teams-Nachricht</h3>
+        <ol>
+            <li>Cursor ins Nachrichtenfeld.</li>
+            <li><kbd>⌥</kbd> + <kbd>⌃</kbd> halten und sprechen.</li>
+            <li>Loslassen → Adaptive-Mode erkennt Chat-Tool, formuliert kürzer und lockerer als für Mail.</li>
+        </ol>
+
+        <h3 class="v3">5.3 Notizen, Code-Kommentare, Word-Dokumente</h3>
+        <p>Für wörtliches Diktieren ohne stilistische Umformulierung: <kbd>⌃</kbd> halten. Whisper transkribiert wortgetreu, kein Cloud-Aufruf.</p>
+
+        <h3 class="v3">5.4 Fremdsprachige Texte verstehen</h3>
+        <p>Markieren Sie englischen Text in einem Browser oder PDF. <kbd>⌃</kbd> + <kbd>⌥</kbd> + <kbd>⌘</kbd> + <kbd>L</kbd> öffnet eine Lightbox mit deutscher Übersetzung. Schließen mit <kbd>Esc</kbd>.</p>
+
+        <h3 class="v3">5.5 Mehrsprachiges Diktat</h3>
+        <p>Standardsprache ist Deutsch. Mit <kbd>Fn</kbd> + <kbd>F1</kbd> wird die nächste Aufnahme als Englisch transkribiert, mit <kbd>Fn</kbd> + <kbd>F2</kbd> als Französisch, usw. Der Wechsel gilt nur für die nächste Aufnahme — danach wieder Deutsch.</p>
+
+        <h2 class="v3" id="settings">6. Einstellungen</h2>
+        <p>Klicken Sie auf das ALVA-TEXT-Symbol in der Menüleiste → „Einstellungen…". Aktuell (v2.1.3) sechs Tabs:</p>
+        <table>
+            <thead><tr><th>Tab</th><th>Inhalt</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Allgemein</strong></td><td>Auto-Start, Update-Prüfung, Whisper-Modell-Verwaltung.</td></tr>
+                <tr><td><strong>Hotkeys</strong></td><td>Alle Hotkeys frei umlegbar, Konfliktwarnung wenn anderer Hotkey besetzt ist.</td></tr>
+                <tr><td><strong>Sprachen</strong></td><td>F-Tasten-Zuordnung pro Sprache (Whisper-unterstützt: 99 Sprachen, voreingestellt 5 davon).</td></tr>
+                <tr><td><strong>Cloud</strong></td><td>OpenAI-API-Schlüssel, Modell-Auswahl (gpt-4o, gpt-4o-mini, etc.), Reverse-Übersetzung-Aktivierung.</td></tr>
+                <tr><td><strong>Verlauf</strong></td><td>Letzte 50 Transkriptionen lokal — wiederholt nutzbar, jederzeit löschbar.</td></tr>
+                <tr><td><strong>Erweitert</strong></td><td>Logging, Debug-Modus, Reset auf Werkseinstellungen.</td></tr>
+            </tbody>
+        </table>
+        <p>Mit v2.2 kommen vier weitere Tabs: <strong>Identität</strong>, <strong>Stil</strong>, <strong>Wortschatz</strong>, <strong>Profile</strong>. Details siehe <a href="#v22">Abschnitt 11</a>.</p>
+
+        <h2 class="v3" id="cloud">7. Cloud-Modi (OpenAI)</h2>
+        <p>ALVA-TEXT funktioniert komplett ohne OpenAI-Schlüssel — das Roh-Diktat ist vollständig lokal. Wer aber den Adaptive-Message-Modus, die Reverse-Übersetzung oder spätere Custom-Modes nutzen möchte, hinterlegt einen eigenen OpenAI-Schlüssel im Tab „Cloud".</p>
+        <p>Der Schlüssel wird im macOS-Schlüsselbund gespeichert, niemals an AdLuna übertragen. Jeder Cloud-Aufruf läuft direkt zwischen Ihrem Mac und der OpenAI-API.</p>
+        <div class="callout">
+            <p><strong>Was wird in die Cloud gesendet?</strong> Bei aktivem Adaptive-Mode: der lokal transkribierte Text (kein Audio) plus ein System-Prompt, der den Kanaltyp beschreibt. Bei aktiver Reverse-Übersetzung: nur der markierte Text. In keinem Fall: Audio, Mac-Identifier, Verlauf vergangener Diktate.</p>
+        </div>
+
+        <h2 class="v3" id="privacy">8. Datenschutz im Alltag</h2>
+        <p>ALVA-TEXT ist so gebaut, dass die maximale Datenschutz-Variante immer auch die Default-Variante ist:</p>
+        <ul>
+            <li>Audio wird nur während aktiver Hotkey-Aufnahme erfasst, nie persistent gespeichert.</li>
+            <li>Transkripte landen im lokalen Verlauf (Tab „Verlauf"), bis Sie sie löschen oder den Verlauf-Cap (50 Einträge) erreicht ist.</li>
+            <li>Es gibt keine Telemetrie, kein Crash-Reporting an Dritte, keine Analytics.</li>
+            <li>Die einzige Netzwerkaktivität ohne Cloud-Modus: einmal pro Tag eine Anfrage an GitHub, ob es ein neues Release gibt.</li>
+            <li>Mit v2.2 kommen Profile, Wortschatz und Lern-Ereignisse hinzu — alle in <code>~/Library/Application Support/ALVA-TEXT/</code>, nie auf einen Server.</li>
+        </ul>
+        <p>Vollständige Erklärung: <a href="datenschutz.html#alva-text">Datenschutzerklärung, Abschnitt 7</a>. Zusätzlich: <a href="ai-act.html#alva-text">AI-Act-Transparenz</a>.</p>
+
+        <h2 class="v3" id="troubleshooting">9. Troubleshooting</h2>
+
+        <h3 class="v3">„Nichts passiert, wenn ich den Hotkey drücke."</h3>
+        <p>Prüfen Sie unter macOS-Einstellungen → Datenschutz &amp; Sicherheit:</p>
+        <ul>
+            <li><strong>Eingabeüberwachung</strong> → ALVA-TEXT aktiviert?</li>
+            <li><strong>Bedienungshilfen</strong> → ALVA-TEXT aktiviert?</li>
+        </ul>
+        <p>Beide müssen aktiv sein. Falls nicht: Häkchen setzen, ALVA-TEXT neu starten.</p>
+
+        <h3 class="v3">„Der Text wird nicht eingefügt."</h3>
+        <p>Häufigste Ursache: Bedienungshilfen-Berechtigung fehlt. Falls aktiv aber trotzdem kein Text: Test-Aufnahme im ALVA-TEXT-Hauptfenster machen — wenn dort der Text erscheint, ist die Transkription ok und es liegt am Auto-Insert. Tab „Erweitert" → „Auto-Insert testen" zeigt den Fehler.</p>
+
+        <h3 class="v3">„Mein Diktat enthält Wörter, die ich nicht gesagt habe."</h3>
+        <p>Das ist der berüchtigte Sign-off-Bug aus v2.1.2 — behoben in v2.1.3. Bitte updaten. Mit v2.2 (Wortschatz-Bibliothek) lassen sich zusätzlich Eigennamen sauber definieren.</p>
+
+        <h3 class="v3">„Whisper-Modell lädt nicht."</h3>
+        <p>Beim ersten Start lädt ALVA-TEXT Whisper-Small (~470&nbsp;MB) im Hintergrund. Wenn das fehlschlägt: Internetverbindung prüfen, Tab „Allgemein" → „Modell erneut herunterladen". Bei anhaltenden Problemen: <a href="mailto:support@adluna.de">support@adluna.de</a>.</p>
+
+        <h3 class="v3">„App startet nicht / Gatekeeper meckert."</h3>
+        <p>ALVA-TEXT ist signiert und notarisiert. Falls macOS trotzdem die Ausführung blockiert: macOS-Einstellungen → Datenschutz &amp; Sicherheit → ganz unten „Trotzdem öffnen" für ALVA-TEXT. Das ist nach dem ersten erfolgreichen Start nie wieder nötig.</p>
+
+        <h2 class="v3" id="faq">10. Häufige Fragen</h2>
+
+        <details class="faq">
+            <summary>Funktioniert ALVA-TEXT auch ohne Internet?</summary>
+            <p>Ja, vollständig — sobald das Whisper-Modell einmalig geladen ist. Roh-Diktat (<kbd>⌃</kbd>) und Sprachwechsel (<kbd>Fn+F</kbd>) laufen rein lokal. Nur Adaptive-Mode und Reverse-Übersetzung brauchen Internet (für die OpenAI-API).</p>
+        </details>
+        <details class="faq">
+            <summary>Werden meine Diktate von AdLuna mitgelesen?</summary>
+            <p>Nein. Es gibt keine Server, an die ALVA-TEXT Diktate sendet. Wenn Sie den Adaptive-Mode aktivieren, geht der transkribierte Text direkt von Ihrem Mac an die OpenAI-API über Ihren eigenen Schlüssel — AdLuna ist daran nicht beteiligt und sieht davon nichts.</p>
+        </details>
+        <details class="faq">
+            <summary>Was passiert mit dem Audio?</summary>
+            <p>Audio wird nur während aktiver Hotkey-Aufnahme im RAM verarbeitet, an Whisper übergeben und danach verworfen. Es wird nie auf der Festplatte gespeichert, nicht im Verlauf, nicht in Logs.</p>
+        </details>
+        <details class="faq">
+            <summary>Brauche ich einen OpenAI-Account?</summary>
+            <p>Nein, für das Roh-Diktat nicht. Für Adaptive-Mode und Reverse-Übersetzung schon — Sie hinterlegen einen eigenen API-Schlüssel im Tab „Cloud". Kosten zahlen Sie direkt an OpenAI, nicht an AdLuna.</p>
+        </details>
+        <details class="faq">
+            <summary>Was kostet ALVA-TEXT?</summary>
+            <p>In der Beta-Phase nichts. Spätere Lizenz-Modelle werden vor jeder Preisänderung mit mindestens 90 Tagen Vorlauf kommuniziert.</p>
+        </details>
+        <details class="faq">
+            <summary>Kann ich das Whisper-Modell tauschen?</summary>
+            <p>Ja, in v2.1.3 nur Whisper-Small. Mit v2.2 kommt eine Auswahl: Tiny (schneller, ungenauer), Small (Standard), Medium (genauer, langsamer), Large-v3 (am genauesten, ~3 GB).</p>
+        </details>
+        <details class="faq">
+            <summary>Funktioniert es auf Intel-Macs?</summary>
+            <p>Nein. ALVA-TEXT setzt auf Core ML auf Apple Silicon — Intel wird in absehbarer Zeit nicht unterstützt.</p>
+        </details>
+        <details class="faq">
+            <summary>Kann ich die App auf mehreren Macs nutzen?</summary>
+            <p>Ja. Die Beta-Aktivierung läuft pro Mac per E-Mail-Code. Schreiben Sie einfach an <a href="mailto:support@adluna.de">support@adluna.de</a> und Sie bekommen Codes für alle Geräte.</p>
+        </details>
+
+        <h2 class="v3" id="v22">11. Was kommt mit v2.2</h2>
+        <p>v2.2 ist die nächste größere Version (geplant Q2 2026) und macht aus dem Diktat-Tool einen persönlichen Sekretär. Zehn Bausteine, alle lokal, alle opt-in:</p>
+        <ol>
+            <li><strong>Identität</strong> — Name, Rolle, Firmenkontext, Hauptsprache. Wird in Mail-Signaturen und Adaptive-Texte gezielt eingebaut.</li>
+            <li><strong>Stil-Defaults pro Kanal</strong> — Du oder Sie, Emoji-Toleranz, Sign-off-Vorlagen, No-Go-Phrasen, Stil-Marker.</li>
+            <li><strong>Pro-App-Kontext</strong> — Mail, Slack, Word werden automatisch erkannt und das passende Profil aktiviert.</li>
+            <li><strong>Wortschatz-Bibliothek</strong> — Eigennamen, Fachbegriffe, Korrektur-Mappings.</li>
+            <li><strong>Multi-Profil</strong> — Privat, Geschäftlich, Mandant, mit einem Klick in der Menüleiste umschalten.</li>
+            <li><strong>Custom Dictation Modes</strong> — eigene Hotkeys mit eigenem System-Prompt. Inklusive Prompt-Optimizer auf <kbd>⌃⌥⌘</kbd>.</li>
+            <li><strong>Cloud-Privacy-Feinsteuerung</strong> — pro Modus separat: lokal, Whisper-Cloud, OpenAI-Rewriting, beides, oder nichts.</li>
+            <li><strong>Kontakt- &amp; Kalender-Integration</strong> — optionaler Zugriff auf macOS-Kontakte/-Kalender, lokal.</li>
+            <li><strong>Adaptive Learning</strong> — wenn Sie Vorschläge korrigieren, lernt die App. Lokal. Opt-in. Jederzeit löschbar.</li>
+            <li><strong>Output-Verhalten</strong> — Auto-Paste, Pre-Confirm-Lightbox oder Drag-Handle, pro Modus regelbar.</li>
+        </ol>
+        <p>Vollständige technische Beschreibung: <a href="ai-act.html#alva-text">AI-Act-Transparenz</a> und <a href="datenschutz.html#alva-text">Datenschutzerklärung</a>.</p>
+
+        <h2 class="v3" id="support">12. Support &amp; Kontakt</h2>
+        <p>Probleme, Vorschläge, Lob, Kritik:</p>
+        <div class="v3-meta">
+            <p><strong>Support:</strong> <a href="mailto:support@adluna.de">support@adluna.de</a></p>
+            <p><strong>Datenschutz:</strong> <a href="mailto:datenschutz@adluna.de">datenschutz@adluna.de</a></p>
+            <p><strong>Sicherheitslücken:</strong> <a href="mailto:security@adluna.de">security@adluna.de</a> (PGP-Schlüssel auf Anfrage)</p>
+        </div>
+        <p>Wir antworten persönlich, kein Ticketsystem, keine Bots. In der Regel innerhalb von 48 Stunden, an Werktagen meist deutlich schneller.</p>
+
+        <p class="v3-stand">Stand: April 2026 · Bezieht sich auf ALVA-TEXT v2.1.3, mit v2.2-Vorausblick.</p>
+
+        <p class="v3-back"><a href="alva-text.html">← Zurück zur Produktseite</a></p>
+    </div>
+</article>
+
+<footer class="v3-footer">
+    <div class="v3-container">
+        <p>
+            © 2026 AdLuna GmbH ·
+            <a href="manifest.html">Manifest</a> ·
+            <a href="ai-act.html">AI-Act</a> ·
+            <a href="impressum.html">Impressum</a> ·
+            <a href="datenschutz.html">Datenschutz</a> ·
+            <a href="agb.html">AGB</a> ·
+            <a href="lizenzen.html">Lizenzen</a>
+        </p>
+    </div>
+</footer>
+
+</body>
+</html>

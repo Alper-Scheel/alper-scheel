@@ -156,6 +156,21 @@ final class AppCoordinator: ObservableObject {
         }
         return ""
     }
+
+    // MARK: - Pro-Mode (Standard vs. Pro) — v2.2
+
+    /// Modus-Wahl aus dem Onboarding. `.standard` = schlank (kein
+    /// Personalisierungs-Block in System-Prompts, keine Pro-Tabs in den
+    /// Settings). `.pro` = volle Personalisierung (Cluster 1, 2, 4, 5).
+    /// `.unset` zwingt das Onboarding-Window zur Modus-Auswahl beim ersten Start.
+    @Published var proMode: ProMode = ProModeStore.current {
+        didSet { ProModeStore.current = proMode }
+    }
+
+    /// Multi-Profil-Manager (Cluster 5). Wird vom Coordinator an
+    /// `OpenAIService` weitergereicht, sobald `proMode == .pro` ist.
+    let personalizationStore = PersonalizationStore.shared
+
     @Published var autoPaste: Bool = UserDefaults.standard.object(forKey: "autoPaste") as? Bool ?? true {
         didSet { UserDefaults.standard.set(autoPaste, forKey: "autoPaste") }
     }
@@ -809,7 +824,16 @@ final class AppCoordinator: ObservableObject {
                             trackChatUsage(result.usage, kind: .rewrite)
                         case .message:
                             status = .rewriting
-                            let result = try await openAI.rewriteAsAdaptiveMessage(text: transcript, apiKey: apiKey)
+                            // v2.2: Personalisierungs-Profil nur in Pro-Modus durchreichen.
+                            // Im Standard-Modus läuft die Adaptive-Message ohne
+                            // Personalisierungs-Block, wie in v2.1.3.
+                            let profile: PersonalizationProfile? =
+                                (proMode == .pro) ? personalizationStore.activeProfile : nil
+                            let result = try await openAI.rewriteAsAdaptiveMessage(
+                                text: transcript,
+                                apiKey: apiKey,
+                                personalization: profile
+                            )
                             finalText = result.text
                             lastRewrittenText = finalText
                             UserDefaults.standard.set(finalText, forKey: "lastRewritten")

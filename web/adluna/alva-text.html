@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALVA-TEXT — Diktat für macOS. Lokal und loyal.</title>
+    <meta name="description" content="ALVA-TEXT ist die macOS-Diktat-App von AdLuna. Vollständig lokal mit Whisper, optional Cloud-Rewriting, Menu-Bar-Integration, Mehrsprachigkeit. Aktuell v2.1.3, v2.2 in Vorbereitung.">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles-v3.css">
+    <style>
+        /* ── Inline-Demo (animiertes CSS-Mockup eines Mac-Fensters) ───────── */
+        .alva-demo {
+            background: #1c1f24;
+            border-radius: 12px;
+            box-shadow: 0 24px 60px rgba(20, 40, 75, 0.18);
+            overflow: hidden;
+            max-width: 760px;
+            margin: 3rem auto 0;
+            border: 1px solid #2a2d34;
+        }
+        .alva-demo-titlebar {
+            background: #2a2d34;
+            padding: 0.6rem 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            border-bottom: 1px solid #15171a;
+        }
+        .alva-demo-dot {
+            width: 12px; height: 12px; border-radius: 50%;
+        }
+        .alva-demo-dot.r { background: #ff5f56; }
+        .alva-demo-dot.y { background: #ffbd2e; }
+        .alva-demo-dot.g { background: #27c93f; }
+        .alva-demo-title {
+            margin-left: 0.75rem;
+            font-family: var(--font-mono, "SF Mono", Menlo, monospace);
+            font-size: 0.8rem;
+            color: #8a8d95;
+            flex: 1;
+            text-align: center;
+        }
+        .alva-demo-body {
+            position: relative;
+            min-height: 320px;
+            padding: 2.4rem 2rem;
+            background: #15171a;
+            color: #e3e1dc;
+            font-family: var(--font-sans);
+            font-size: 1rem;
+            line-height: 1.65;
+        }
+        .alva-demo-cursor {
+            display: inline-block;
+            width: 8px;
+            height: 1.1em;
+            background: #FFD66B;
+            vertical-align: text-bottom;
+            margin-left: 2px;
+            animation: alva-blink 1s steps(2, end) infinite;
+        }
+        @keyframes alva-blink { 50% { opacity: 0; } }
+        .alva-demo-status {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            font-family: var(--font-mono, "SF Mono", Menlo, monospace);
+            font-size: 0.78rem;
+            padding: 0.35rem 0.8rem;
+            border-radius: 999px;
+            background: rgba(255, 95, 86, 0.15);
+            color: #ff8a82;
+            border: 1px solid rgba(255, 95, 86, 0.3);
+            animation: alva-pulse 1.5s ease-in-out infinite;
+        }
+        .alva-demo-status::before {
+            content: "";
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #ff5f56;
+        }
+        @keyframes alva-pulse {
+            50% { opacity: 0.55; }
+        }
+        .alva-demo-wave {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            height: 60px;
+            margin: 1.5rem 0 1.8rem;
+        }
+        .alva-demo-wave span {
+            display: block;
+            width: 4px;
+            background: linear-gradient(180deg, #FFD66B, #14284B);
+            border-radius: 2px;
+            animation: alva-wave 1.1s ease-in-out infinite;
+        }
+        .alva-demo-wave span:nth-child(1) { height: 18px; animation-delay: 0.0s; }
+        .alva-demo-wave span:nth-child(2) { height: 32px; animation-delay: 0.1s; }
+        .alva-demo-wave span:nth-child(3) { height: 48px; animation-delay: 0.2s; }
+        .alva-demo-wave span:nth-child(4) { height: 36px; animation-delay: 0.3s; }
+        .alva-demo-wave span:nth-child(5) { height: 24px; animation-delay: 0.4s; }
+        .alva-demo-wave span:nth-child(6) { height: 42px; animation-delay: 0.5s; }
+        .alva-demo-wave span:nth-child(7) { height: 30px; animation-delay: 0.6s; }
+        .alva-demo-wave span:nth-child(8) { height: 18px; animation-delay: 0.7s; }
+        @keyframes alva-wave {
+            0%, 100% { transform: scaleY(0.4); }
+            50% { transform: scaleY(1); }
+        }
+        .alva-demo-hint {
+            text-align: center;
+            font-family: var(--font-mono, "SF Mono", Menlo, monospace);
+            font-size: 0.78rem;
+            color: #8a8d95;
+            margin-top: 1rem;
+        }
+        .alva-demo-keys {
+            display: inline-flex;
+            gap: 0.3rem;
+            margin: 0 0.3rem;
+        }
+        .alva-demo-keys kbd {
+            display: inline-block;
+            padding: 0.15rem 0.5rem;
+            border-radius: 5px;
+            background: #2a2d34;
+            border: 1px solid #3a3d44;
+            border-bottom-width: 2px;
+            font-family: var(--font-mono, "SF Mono", Menlo, monospace);
+            font-size: 0.78rem;
+            color: #e3e1dc;
+        }
+        .alva-demo-typed {
+            color: #e3e1dc;
+            white-space: pre-wrap;
+            border-left: 2px solid #FFD66B;
+            padding: 0.5rem 0 0.5rem 1rem;
+            margin-top: 1rem;
+            min-height: 5em;
+            font-size: 0.95rem;
+            line-height: 1.7;
+        }
+        .alva-demo-typed::after {
+            content: "|";
+            color: #FFD66B;
+            animation: alva-blink 1s steps(2, end) infinite;
+        }
+        /* Roadmap-Card-Grid für v2.2 */
+        .v22-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.25rem;
+            margin-top: 2.5rem;
+        }
+        @media (max-width: 720px) { .v22-grid { grid-template-columns: 1fr; } }
+        .v22-card {
+            background: var(--pipely-bg-alt);
+            border: 1px solid var(--pipely-line);
+            border-radius: 12px;
+            padding: 1.6rem 1.5rem;
+        }
+        .v22-card .num {
+            font-family: var(--font-serif);
+            font-size: 0.85rem;
+            color: var(--pipely-accent);
+            letter-spacing: 0.08em;
+            display: block;
+            margin-bottom: 0.4rem;
+        }
+        .v22-card h3 {
+            font-family: var(--font-serif);
+            font-size: 1.05rem;
+            margin: 0 0 0.5rem;
+            color: var(--pipely-text);
+            font-weight: 500;
+        }
+        .v22-card p {
+            font-size: 0.92rem;
+            color: var(--pipely-muted);
+            margin: 0;
+            line-height: 1.55;
+        }
+    </style>
+</head>
+<body>
+
+<nav class="v3-nav" id="v3-nav">
+    <div class="v3-nav-inner">
+        <a href="index.html" class="v3-nav-brand">
+            <img class="v3-logo-mark" src="assets/logo/AdLuna-Logo-solo-dunkel-512.png" alt="AdLuna" width="52" height="52">
+            <span>AdLuna</span>
+        </a>
+        <ul class="v3-nav-links">
+            <li><a href="produkte.html">Produkte</a></li>
+            <li><a href="manifest.html">Manifest</a></li>
+            <li><a href="alva-text-manual.html">Anleitung</a></li>
+            <li><a href="index.html#kontakt">Kontakt</a></li>
+        </ul>
+    </div>
+</nav>
+
+<!-- ────────────────────────────  PAGE-HERO  ──────────────────────────── -->
+<section class="v3-page-hero">
+    <div class="v3-container">
+        <span class="v3-eyebrow v3-eyebrow-accent">ALVA-TEXT &nbsp;·&nbsp; v2.1.3</span>
+        <h1 class="v3">Diktat für macOS. Lokal und loyal.</h1>
+        <p class="v3-lead">Hotkey drücken, sprechen, loslassen — der Text steht in der App, in der Sie gerade sind. Whisper transkribiert auf Ihrem Mac, ohne Cloud, ohne API-Kosten, ohne dass jemand mitliest.</p>
+        <div class="v3-btn-row" style="justify-content: center; margin-top: 1.5rem;">
+            <a href="https://github.com/Alper-Scheel/alper-scheel/releases/latest/download/ALVA-TEXT.dmg" class="v3-btn v3-btn-primary" download>Kostenlos herunterladen</a>
+            <a href="alva-text-manual.html" class="v3-btn v3-btn-ghost">Anleitung lesen</a>
+        </div>
+        <p style="margin-top: 1.5rem; font-size: 0.85rem; color: var(--pipely-subtle);">
+            v2.1.3 (Build 22) · macOS 15 Sequoia · Apple Silicon · signiert &amp; notarisiert
+        </p>
+    </div>
+</section>
+
+<!-- ────────────────────────────  LIVE-DEMO  ─────────────────────────── -->
+<section class="v3-section v3-section-tight v3-section-alt">
+    <div class="v3-container" style="text-align: center;">
+        <span class="v3-eyebrow">In 8 Sekunden verstanden</span>
+        <h2 class="v3" style="margin-left: auto; margin-right: auto;">So fühlt es sich an.</h2>
+        <p class="v3-lead" style="margin-left: auto; margin-right: auto;">Hotkey halten, sprechen, loslassen. Der transkribierte Satz erscheint dort, wo der Cursor blinkt — egal ob Mail, Word, Slack oder Terminal.</p>
+
+        <div class="alva-demo" aria-hidden="true">
+            <div class="alva-demo-titlebar">
+                <span class="alva-demo-dot r"></span>
+                <span class="alva-demo-dot y"></span>
+                <span class="alva-demo-dot g"></span>
+                <span class="alva-demo-title">Mail — Neue Nachricht</span>
+            </div>
+            <div class="alva-demo-body">
+                <div class="alva-demo-status">REC · ⌃ gedrückt</div>
+                <div style="font-family: var(--font-mono, monospace); font-size: 0.78rem; color: #8a8d95; margin-bottom: 0.5rem;">An: kunde@firma.de</div>
+                <div style="font-family: var(--font-mono, monospace); font-size: 0.78rem; color: #8a8d95; margin-bottom: 1rem;">Betreff: Vertragsentwurf</div>
+                <div class="alva-demo-wave">
+                    <span></span><span></span><span></span><span></span>
+                    <span></span><span></span><span></span><span></span>
+                </div>
+                <div class="alva-demo-typed" id="alvaDemoText"></div>
+                <div class="alva-demo-hint">
+                    <span class="alva-demo-keys"><kbd>⌃</kbd></span>
+                    halten zum Diktieren ·
+                    <span class="alva-demo-keys"><kbd>⌥</kbd><kbd>⌃</kbd></span>
+                    halten für Adaptive-Mode
+                </div>
+            </div>
+        </div>
+
+        <!-- Slot für späteres echtes Video -->
+        <details style="max-width: 760px; margin: 2.5rem auto 0; text-align: left;">
+            <summary style="cursor: pointer; color: var(--pipely-accent); font-weight: 500;">Lieber ein echtes Bildschirm-Video?</summary>
+            <div style="margin-top: 1rem;">
+                <video controls preload="none" poster="assets/logo/AdLuna-Logo-solo-dunkel-512.png"
+                       style="width: 100%; border-radius: 10px; background: #15171a;">
+                    <source src="assets/video/alva-text-demo.mp4" type="video/mp4">
+                    Ihr Browser kann das Video nicht abspielen. Bitte
+                    <a href="https://github.com/Alper-Scheel/alper-scheel/releases/latest">laden Sie ALVA-TEXT direkt herunter</a>
+                    und probieren Sie es selbst aus.
+                </video>
+                <p style="font-size: 0.85rem; color: var(--pipely-subtle); margin-top: 0.6rem;">
+                    Hinweis: Das echte Demo-Video wird in den nächsten Tagen ergänzt — die animierte Vorschau oben zeigt den exakten Ablauf.
+                </p>
+            </div>
+        </details>
+    </div>
+</section>
+
+<!-- ────────────────────────────  DREI VERSPRECHEN  ──────────────────── -->
+<section class="v3-section">
+    <div class="v3-container">
+        <span class="v3-eyebrow">Drei Versprechen</span>
+        <h2 class="v3">Ein Diktat-Tool, das sich nicht in den Weg stellt.</h2>
+
+        <div class="v3-pillars">
+            <div class="v3-pillar">
+                <span class="v3-eyebrow" style="margin-bottom: 0.5rem;">Lokale Transkription</span>
+                <h3 class="v3">Whisper auf Ihrem Mac.</h3>
+                <p class="v3-text">Whisper-Small läuft lokal, sobald er einmal heruntergeladen ist (~466 MB). Kein API-Schlüssel nötig, kein Internet, kein Abfluss. Qualität für deutsches Diktat sehr nah an Cloud-Whisper.</p>
+            </div>
+            <div class="v3-pillar">
+                <span class="v3-eyebrow" style="margin-bottom: 0.5rem;">Optional Cloud-Rewriting</span>
+                <h3 class="v3">Nur, wenn Sie es wollen.</h3>
+                <p class="v3-text">Höflich-Modus, Adaptive-Message-Modus, Sprach-Übersetzung — alles über Ihren eigenen OpenAI-Schlüssel. Liegt im macOS-Schlüsselbund. Bleibt bei Ihnen, niemals bei uns.</p>
+            </div>
+            <div class="v3-pillar">
+                <span class="v3-eyebrow" style="margin-bottom: 0.5rem;">Kein Workflow-Bruch</span>
+                <h3 class="v3">Lebt in der Menüleiste.</h3>
+                <p class="v3-text">Kein neues Fenster, kein neuer Tab, kein neues Konzept zum Lernen. Hotkey halten, sprechen, loslassen — der Text landet direkt dort, wo Sie gerade tippen würden.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ────────────────────────────  WAS V2.1.3 KANN  ───────────────────── -->
+<section class="v3-section v3-section-alt">
+    <div class="v3-container">
+        <span class="v3-eyebrow v3-eyebrow-accent">Aktuell verfügbar &nbsp;·&nbsp; v2.1.3</span>
+        <h2 class="v3">Was ALVA-TEXT heute schon kann.</h2>
+
+        <div class="v3-feature-row reverse">
+            <div class="v3-feature-text">
+                <span class="v3-feature-status live">Live</span>
+                <h2 class="v3">Roh-Diktat &amp; Adaptive-Message-Modus.</h2>
+                <p>Zwei Hotkeys, zwei Modi. <strong>Steuerung halten</strong> diktiert wörtlich, was Sie sprechen. <strong>Optionstaste + Steuerung</strong> aktiviert den Adaptive-Mode: ALVA-TEXT erkennt automatisch, ob Sie eine Mail, eine WhatsApp oder eine Slack-Nachricht schreiben — und passt Ton, Länge und Form an.</p>
+                <ul>
+                    <li>Whisper-Small lokal auf Apple Silicon</li>
+                    <li>Adaptive-Mode kanalweise (Mail formell, Chat locker)</li>
+                    <li>⌘V-Auto-Insert in die fokussierte App</li>
+                </ul>
+            </div>
+            <div class="v3-feature-visual" style="background: linear-gradient(135deg, #14284B, #0A1A3A); display: flex; align-items: center; justify-content: center;">
+                <div style="font-family: var(--font-mono); color: #FFD66B; font-size: 1.4rem; text-align: center; padding: 2rem;">
+                    ⌃ &nbsp; Roh-Diktat<br>
+                    <span style="opacity: 0.4;">───────</span><br>
+                    ⌥⌃ &nbsp; Adaptive
+                </div>
+            </div>
+        </div>
+
+        <div class="v3-feature-row">
+            <div class="v3-feature-text">
+                <span class="v3-feature-status live">Live</span>
+                <h2 class="v3">Mehrsprachigkeit per F-Taste.</h2>
+                <p>Standardmäßig deutsch. <code>Fn+F1</code> Englisch, <code>Fn+F2</code> Französisch, <code>Fn+F3</code> Italienisch, <code>Fn+F4</code> Mandarin, <code>Fn+F5</code> Thai. Alles frei konfigurierbar in den Einstellungen, alles lokal über Whisper.</p>
+            </div>
+            <div class="v3-feature-visual" style="background: linear-gradient(135deg, #FAF0D7, #E5E0FA); display: flex; align-items: center; justify-content: center;">
+                <div style="font-family: var(--font-mono); color: #14284B; font-size: 0.95rem; text-align: center; padding: 2rem; line-height: 1.9;">
+                    Fn+F1 &nbsp;EN<br>
+                    Fn+F2 &nbsp;FR<br>
+                    Fn+F3 &nbsp;IT<br>
+                    Fn+F4 &nbsp;ZH<br>
+                    Fn+F5 &nbsp;TH
+                </div>
+            </div>
+        </div>
+
+        <div class="v3-feature-row reverse">
+            <div class="v3-feature-text">
+                <span class="v3-feature-status live">Live</span>
+                <h2 class="v3">Reverse-Übersetzung als Lightbox.</h2>
+                <p><code>⌃⌥⌘L</code> öffnet eine Popup-Übersetzung des markierten Textes ins Deutsche. Ideal für englische Artikel, die im Lesefluss verstanden werden sollen — ohne DeepL-Tab, ohne Context-Switch.</p>
+            </div>
+            <div class="v3-feature-visual" style="background: linear-gradient(135deg, #D8EAE0, #FAE3DC); display: flex; align-items: center; justify-content: center;">
+                <div style="font-family: var(--font-mono); color: #14284B; font-size: 1.05rem; text-align: center; padding: 2rem;">
+                    ⌃⌥⌘L<br>
+                    <span style="opacity: 0.55; font-size: 0.85rem;">→ Lightbox-Übersetzung</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ────────────────────────────  V2.2 ROADMAP  ──────────────────────── -->
+<section class="v3-section">
+    <div class="v3-container">
+        <span class="v3-eyebrow v3-eyebrow-accent">In Arbeit &nbsp;·&nbsp; v2.2</span>
+        <h2 class="v3">Aus dem Diktat-Tool wird ein persönlicher Sekretär.</h2>
+        <p class="v3-lead">v2.1.3 hat einen Sign-off-Bug behoben, der dafür gesorgt hat, dass das Modell Grußformeln und Namen erfunden hat, die niemand diktiert hat. v2.2 zieht den Schluss daraus: <strong>Personalisierung gehört in die Hand des Nutzers, nicht in den Bauch des Modells.</strong> Zehn Bausteine, alle lokal:</p>
+
+        <div class="v22-grid">
+            <div class="v22-card">
+                <span class="num">01 · Identität</span>
+                <h3>Wer Sie sind, weiß die App.</h3>
+                <p>Name, Rolle, Firmenkontext, Hauptsprache. Wird gezielt in Mail-Signaturen und Adaptive-Message-Texte eingebaut, statt erfunden zu werden.</p>
+            </div>
+            <div class="v22-card">
+                <span class="num">02 · Stil-Defaults</span>
+                <h3>Du oder Sie, Smiley oder kein Smiley.</h3>
+                <p>Pro Kanal definierbar: Anredeform, Emoji-Toleranz, Sign-off-Vorlagen, No-Go-Phrasen, Stil-Marker („nüchtern", „warm", „sachlich").</p>
+            </div>
+            <div class="v22-card">
+                <span class="num">03 · Pro-App-Kontext</span>
+                <h3>Mail anders als Slack, Slack anders als Word.</h3>
+                <p>ALVA-TEXT erkennt die fokussierte App und nutzt automatisch das passende Profil. Word-Dokument formell, Messages locker — ohne dass Sie umschalten müssen.</p>
+            </div>
+            <div class="v22-card">
+                <span class="num">04 · Wortschatz-Bibliothek</span>
+                <h3>Eigennamen, die endlich richtig fallen.</h3>
+                <p>Firmen, Kollegen, Fachbegriffe, Produktnamen — einmal eintragen, dann immer korrekt geschrieben. Inklusive Korrektur-Mappings für hartnäckige Fehl-Transkriptionen.</p>
+            </div>
+            <div class="v22-card">
+                <span class="num">05 · Multi-Profil</span>
+                <h3>Privat, geschäftlich, Mandantengespräch.</h3>
+                <p>Profile-Picker in der Menüleiste. Sie wechseln den Hut, ALVA-TEXT folgt — anderer Sign-off, andere Tonalität, anderer Wortschatz, mit einem Klick.</p>
+            </div>
+            <div class="v22-card">
+                <span class="num">06 · Custom Dictation Modes</span>
+                <h3>Eigene Hotkeys, eigene System-Prompts.</h3>
+                <p>Brauchen Sie einen „Anwalts-Modus"? Einen „Code-Kommentar-Modus"? Einen Prompt-Optimizer auf <code>⌃⌥⌘</code>? Sie definieren ihn — Hotkey, Prompt, Voice-Pack, Auto-Insert-Verhalten.</p>
+            </div>
+            <div class="v22-card">
+                <span class="num">07 · Cloud-Privacy-Feinsteuerung</span>
+                <h3>Sie entscheiden pro Modus, was die Cloud sieht.</h3>
+                <p>Pro Diktat-Modus separat einstellbar: rein lokal, nur Whisper-Cloud, nur OpenAI-Rewriting, beides, oder gar nichts. Mit Vorschau, was tatsächlich gesendet würde.</p>
+            </div>
+            <div class="v22-card">
+                <span class="num">08 · Kontakt- &amp; Kalender-Integration</span>
+                <h3>„Schreib Conny eine Mail."</h3>
+                <p>Optionaler Zugriff auf macOS-Kontakte und -Kalender (EventKit/Contacts), rein lokal. ALVA-TEXT kennt die richtige Mail-Adresse, weiß den Termin und schlägt den Kontext vor.</p>
+            </div>
+            <div class="v22-card">
+                <span class="num">09 · Adaptive Learning</span>
+                <h3>Lernt Ihren Stil — auf Ihrem Mac.</h3>
+                <p>Wenn Sie eine vorgeschlagene Formulierung korrigieren, merkt sich ALVA-TEXT das. Lokal. Opt-in. Jederzeit löschbar. Nie an einen Server, nie an ein zentrales Modell.</p>
+            </div>
+            <div class="v22-card">
+                <span class="num">10 · Output-Verhalten</span>
+                <h3>Direkt einfügen oder Vorschau zeigen?</h3>
+                <p>Pro Modus regelbar: Auto-⌘V, Pre-Confirm-Lightbox, oder Drag-Handle. Wer in heiklen Apps tippt, will vor dem Einfügen lesen — wer in Slack tippt, will Tempo.</p>
+            </div>
+        </div>
+
+        <p style="margin-top: 3rem; font-size: 0.92rem; color: var(--pipely-muted);">
+            <strong>Was v2.2 nicht tut:</strong> Keine Server-Synchronisierung. Kein zentrales Lernen. Keine Telemetrie. Profile, Wortschatz und Lern-Ereignisse bleiben in <code>~/Library/Application Support/ALVA-TEXT/</code> auf Ihrem Mac. Details siehe <a href="datenschutz.html#alva-text">Datenschutzerklärung</a> und <a href="ai-act.html#alva-text">AI-Act-Transparenz</a>.
+        </p>
+    </div>
+</section>
+
+<!-- ────────────────────────────  DOWNLOAD-BLOCK  ────────────────────── -->
+<section class="v3-section v3-section-alt" id="download">
+    <div class="v3-container">
+        <div class="v3-reading" style="padding: 0;">
+            <span class="v3-eyebrow v3-eyebrow-accent">Download · Kostenlose Beta</span>
+            <h2 class="v3">ALVA-TEXT für macOS herunterladen</h2>
+            <p class="v3-lead">Signiert mit Developer-ID „AdPolis GmbH", notarisiert durch Apple, gestapelt. Kostenfrei in der Beta-Phase. Aktivierung per 6-stelligem Code, den Sie per E-Mail erhalten.</p>
+
+            <div style="background: var(--pipely-bg-alt); border: 1px solid var(--pipely-line); border-radius: 10px; padding: 2rem; margin-top: 2rem;">
+                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                    <a href="https://github.com/Alper-Scheel/alper-scheel/releases/latest/download/ALVA-TEXT.dmg" class="v3-btn v3-btn-primary" style="font-size: 1rem; padding: 1rem 1.5rem; text-align: center;" download>
+                        ALVA-TEXT.dmg herunterladen
+                    </a>
+                    <p style="margin: 0; font-size: 0.85rem; color: var(--pipely-muted);">
+                        Lieber als ZIP? <a href="https://github.com/Alper-Scheel/alper-scheel/releases/latest/download/ALVA-TEXT.zip" download>ALVA-TEXT.zip</a> — gleiche App, ohne Installer-Fenster.
+                    </p>
+                    <table style="margin-top: 1rem; width: 100%;">
+                        <tr><td><strong>Version</strong></td><td>2.1.3 (Build 22) — Hotfix Sign-off-Bug</td></tr>
+                        <tr><td><strong>System</strong></td><td>macOS 15 Sequoia oder neuer · Apple Silicon</td></tr>
+                        <tr><td><strong>Größe</strong></td><td>ca. 2 MB (Whisper-Modell wird beim ersten Start nachgeladen, ~470 MB)</td></tr>
+                        <tr><td><strong>Sicherheit</strong></td><td>Signiert mit Developer-ID „AdPolis GmbH", notarisiert von Apple</td></tr>
+                        <tr><td><strong>Preis</strong></td><td>Kostenlos in der Beta-Phase</td></tr>
+                        <tr><td><strong>Nächste Version</strong></td><td>v2.2 — Personalisierung &amp; Multi-Profile (Q2 2026)</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <h3 class="v3" style="margin-top: 2.5rem;">Installation in drei Schritten</h3>
+            <ol>
+                <li>Geladene <code>ALVA-TEXT.dmg</code> doppelklicken — das öffnet ein Fenster mit App-Symbol und Programme-Ordner-Pfeil. <strong>ALVA-TEXT.app per Drag &amp; Drop in den Programme-Ordner ziehen.</strong></li>
+                <li>ALVA-TEXT aus dem <strong>Programme</strong>-Ordner starten — macOS führt durch ein kurzes Onboarding (Mikrofon, Bedienungshilfen, Eingabeüberwachung). Bei jeder Freigabe startet die App einmal kurz neu, das ist normal.</li>
+                <li>Im Onboarding auf <strong>„Aktivieren"</strong> klicken, E-Mail eingeben, 6-stelligen Code aus der Bestätigungsmail eintragen — fertig.</li>
+            </ol>
+
+            <p style="margin-top: 1.5rem;">Detaillierte Anleitung mit Screenshots und Troubleshooting: <a href="alva-text-manual.html">→&nbsp;ALVA-TEXT-Anleitung lesen</a></p>
+            <p style="color: var(--pipely-muted); font-size: 0.92rem;">Probleme beim Start? <a href="mailto:support@adluna.de">support@adluna.de</a> — wir melden uns persönlich.</p>
+        </div>
+    </div>
+</section>
+
+<!-- ────────────────────────────  ANFORDERUNGEN  ─────────────────────── -->
+<section class="v3-section">
+    <div class="v3-container">
+        <div class="v3-reading" style="padding: 0;">
+            <span class="v3-eyebrow">Anforderungen</span>
+            <h2 class="v3">Was Ihr Mac mitbringen muss.</h2>
+            <table>
+                <tr><td><strong>macOS</strong></td><td>15 (Sequoia) oder neuer</td></tr>
+                <tr><td><strong>Prozessor</strong></td><td>Apple Silicon (M1 oder neuer)</td></tr>
+                <tr><td><strong>Speicherplatz</strong></td><td>ca. 500 MB inkl. Whisper-Modell</td></tr>
+                <tr><td><strong>Mikrofon</strong></td><td>Wird beim ersten Start abgefragt</td></tr>
+                <tr><td><strong>Optional</strong></td><td>OpenAI-API-Schlüssel für Cloud-Rewriting und Sprach-Übersetzung</td></tr>
+                <tr><td><strong>Optional ab v2.2</strong></td><td>Zugriff auf macOS-Kontakte/-Kalender für „Schreib Conny eine Mail" — opt-in, lokal</td></tr>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- ────────────────────────────  FOOTER  ────────────────────────────── -->
+<footer class="v3-footer">
+    <div class="v3-container">
+        <p>
+            © 2026 AdLuna GmbH ·
+            <a href="manifest.html">Manifest</a> ·
+            <a href="ai-act.html">AI-Act</a> ·
+            <a href="impressum.html">Impressum</a> ·
+            <a href="datenschutz.html">Datenschutz</a> ·
+            <a href="agb.html">AGB</a> ·
+            <a href="lizenzen.html">Lizenzen</a> ·
+            <a href="alva-text-manual.html">Anleitung</a>
+        </p>
+    </div>
+</footer>
+
+<!-- ────────────────────────────  Demo-Typing-Loop  ──────────────────── -->
+<script>
+    (function() {
+        var target = document.getElementById('alvaDemoText');
+        if (!target) return;
+        var lines = [
+            'Sehr geehrte Damen und Herren, anbei der überarbeitete Vertragsentwurf zur Kenntnis. Die Anpassungen aus unserem Telefonat von gestern sind eingearbeitet — insbesondere die geänderte Laufzeit und die neue Klausel zur außerordentlichen Kündigung.',
+            'Hi Marius, kurz Bescheid: das Deployment ist durch, v2.1.3 ist live. Tester-Mail geht morgen früh raus. Alles gut, melde mich später nochmal.',
+            'Hallo Conny, kannst du Donnerstag um 11 Uhr? Falls ja, schicke ich dir gleich den Kalendereintrag. Sonst gerne Vorschlag.',
+            'Reminder: Steuerberater-Termin am Dienstag um 14:30 Uhr verschieben, weil Notartermin Vorrang hat. Conny soll bitte den Verschiebungs-Vorschlag verschicken.'
+        ];
+        var i = 0;
+        var ch = 0;
+        var typing = true;
+        var pause = 0;
+
+        function tick() {
+            if (typing) {
+                ch++;
+                target.textContent = lines[i].slice(0, ch);
+                if (ch >= lines[i].length) {
+                    typing = false;
+                    pause = 60;
+                }
+            } else {
+                pause--;
+                if (pause <= 0) {
+                    ch = 0;
+                    i = (i + 1) % lines.length;
+                    typing = true;
+                }
+            }
+        }
+        setInterval(tick, 35);
+    })();
+</script>
+
+<script>
+    // Scroll-Sticky-Style auf Nav
+    (function() {
+        var nav = document.getElementById('v3-nav');
+        if (!nav) return;
+        var handler = function() {
+            if (window.scrollY > 8) nav.classList.add('is-scrolled');
+            else nav.classList.remove('is-scrolled');
+        };
+        window.addEventListener('scroll', handler, { passive: true });
+        handler();
+    })();
+</script>
+
+</body>
+</html>

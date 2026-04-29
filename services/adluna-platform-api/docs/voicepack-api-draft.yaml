@@ -1,0 +1,253 @@
+# =============================================================================
+# AdLuna Platform API — Voice-Pack-Distribution (DRAFT)
+# =============================================================================
+# Stand: 2026-04-26 (Sonntag-Vormittag)
+# Status: Spec-Skizze. Noch KEINE Implementierung. Diskussionsgrundlage.
+#
+# Zweck:
+#   Kostenlose TTS-Voices (z.B. „Alva mit französischem Akzent") als
+#   Lead-Magnet anbieten — nicht als direkter Download, sondern via
+#   E-Mail-Registrierung mit 6-stelligem Bestätigungscode (analog ALVA-TEXT).
+#   Pflicht-Opt-In für Marketing-Mailings, DSGVO-sauber.
+#
+# Wiederverwendung:
+#   - Resend für E-Mail-Versand (`mail.adluna.de` ist bereits eingerichtet)
+#   - SQLite + Alembic-Migrations für Lead-Storage (Pattern wie license.db)
+#   - Bearer-Token-Auth für Admin-Endpoint (ADLUNA_ADMIN_TOKEN existiert bereits)
+#
+# Offen (vor Implementierung):
+#   - Voice-Asset-Inventar: welche Voices, welches Format, wie groß?
+#   - Hosting: nas-4 / R2-Bucket / direkt auf MS512?
+#   - Code-TTL: 15 Min wie bei ALVA-TEXT, oder länger (Lead-Magnet-Trichter)?
+#   - Download-URL-TTL: 24 h Standard, anpassbar?
+# =============================================================================
+
+openapi: 3.1.0
+info:
+  title: AdLuna Platform API — Voice-Pack Extension
+  version: 0.1.0-draft
+  description: |
+    Erweiterung der bestehenden adluna-platform-api um TTS-Voice-Pack-
+    Distribution. Reuse-Pattern: gleicher Activation-Flow wie ALVA-TEXT,
+    erweitert um Pflicht-Opt-In und Lead-Tracking.
+  contact:
+    name: AdLuna Operations
+    email: support@adluna.de
+
+servers:
+  - url: https://api.adluna.de
+    description: Production (MS512 via Cloudflare Tunnel)
+
+paths:
+
+  /v1/voicepacks:
+    get:
+      summary: Liste aller verfügbaren Voice-Packs (Public)
+      description: |
+        Wird von der Landing-Page abgefragt, um die Voice-Auswahl darzustellen.
+        Keine Auth nötig.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  voicepacks:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/VoicepackPublic"
+              example:
+                voicepacks:
+                  - id: alva-fr
+                    name: "Alva (französischer Akzent)"
+                    language: "fr-FR-de"
+                    description: "Synthetische Stimme im Stil unserer ALVA-Demo."
+                    sample_url: "https://cdn.adluna.de/voices/samples/alva-fr.mp3"
+                    size_mb: 120
+                    license: "CC-BY-NC 4.0"
+
+  /v1/voicepacks/request:
+    post:
+      summary: Code-Anforderung für Voice-Pack-Download
+      description: |
+        Sendet einen 6-stelligen Code per Mail an die angegebene Adresse.
+        Pflicht: opt_in_marketing=true (DSGVO — wird mit Timestamp + IP gespeichert).
+        Rate-Limit: 5 Requests pro Email pro Stunde.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, voicepack_id, opt_in_marketing]
+              properties:
+                email:
+                  type: string
+                  format: email
+                voicepack_id:
+                  type: string
+                  example: "alva-fr"
+                opt_in_marketing:
+                  type: boolean
+                  description: |
+                    Pflichtcheckbox. Muss true sein, damit der Code
+                    versendet wird. Das ist der Lead-Magnet-Mechanismus.
+      responses:
+        "202":
+          description: Code wurde per Mail verschickt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: "code_sent" }
+                  expires_in_seconds: { type: integer, example: 900 }
+        "400":
+          description: opt_in_marketing=false oder ungültige Email
+        "429":
+          description: Rate-Limit überschritten
+
+  /v1/voicepacks/redeem:
+    post:
+      summary: Download-URL gegen Code einlösen
+      description: |
+        Validiert den Code und gibt eine zeitlich begrenzte signed Download-URL
+        zurück. URL-TTL: 24 h. Mehrfaches Einlösen mit dem gleichen Code möglich,
+        solange die TTL nicht abgelaufen ist.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code, voicepack_id]
+              properties:
+                email: { type: string, format: email }
+                code: { type: string, example: "739204" }
+                voicepack_id: { type: string, example: "alva-fr" }
+      responses:
+        "200":
+          description: Code gültig, Download-URL ausgeliefert
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  download_url:
+                    type: string
+                    format: uri
+                    example: "https://cdn.adluna.de/voices/alva-fr.zip?expires=..."
+                  expires_at:
+                    type: string
+                    format: date-time
+        "401":
+          description: Code falsch oder abgelaufen
+        "404":
+          description: Voicepack-ID unbekannt
+
+  /v1/admin/voicepack-leads:
+    get:
+      summary: Liste aller registrierten Leads (Admin-only)
+      description: |
+        Wird vom AdLuna-Newsletter-Tool oder einer Mailing-Plattform abgefragt,
+        um die Mailing-Liste zu generieren. Filter: opt_in_marketing=true,
+        verified_email=true, keine bouncenden Mails.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: since
+          schema: { type: string, format: date }
+          description: Optional — nur Leads ab diesem Datum.
+        - in: query
+          name: voicepack_id
+          schema: { type: string }
+          description: Optional — Filter auf einen spezifischen Voicepack.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  leads:
+                    type: array
+                    items: { $ref: "#/components/schemas/Lead" }
+                  total: { type: integer }
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Verwendet `ADLUNA_ADMIN_TOKEN` aus
+        ~/services/adluna-platform-api/.env auf MS512.
+
+  schemas:
+
+    VoicepackPublic:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        language: { type: string }
+        description: { type: string }
+        sample_url: { type: string, format: uri }
+        size_mb: { type: number }
+        license: { type: string }
+
+    Lead:
+      type: object
+      properties:
+        email: { type: string, format: email }
+        voicepack_id: { type: string }
+        opt_in_marketing: { type: boolean }
+        opt_in_at: { type: string, format: date-time }
+        opt_in_ip: { type: string, description: "Für DSGVO-Nachweis" }
+        verified_email: { type: boolean, description: "true sobald Code eingelöst wurde" }
+        first_redeem_at: { type: string, format: date-time, nullable: true }
+
+# =============================================================================
+# Datenmodell-Skizze (Alembic-Migration kommt mit Implementation)
+# =============================================================================
+#
+# Tabelle: voicepacks
+#   id              VARCHAR PRIMARY KEY        z.B. "alva-fr"
+#   name            VARCHAR NOT NULL
+#   language        VARCHAR NOT NULL
+#   description     TEXT
+#   sample_url      VARCHAR
+#   storage_path    VARCHAR NOT NULL           Pfad auf MS512/R2 zur Source-Datei
+#   size_mb         FLOAT
+#   license         VARCHAR
+#   active          BOOLEAN DEFAULT true
+#   created_at      TIMESTAMP
+#
+# Tabelle: voicepack_leads
+#   id              INTEGER PRIMARY KEY
+#   email           VARCHAR NOT NULL
+#   voicepack_id    VARCHAR REFERENCES voicepacks(id)
+#   opt_in_marketing BOOLEAN NOT NULL
+#   opt_in_at       TIMESTAMP NOT NULL
+#   opt_in_ip       VARCHAR
+#   verified_email  BOOLEAN DEFAULT false
+#   first_redeem_at TIMESTAMP
+#   last_redeem_at  TIMESTAMP
+#   redeem_count    INTEGER DEFAULT 0
+#   UNIQUE(email, voicepack_id)
+#
+# Tabelle: voicepack_codes (TTL-Tabelle, automatisches Cleanup)
+#   id              INTEGER PRIMARY KEY
+#   email           VARCHAR NOT NULL
+#   voicepack_id    VARCHAR
+#   code_hash       VARCHAR NOT NULL          bcrypt o.ä., kein Klartext
+#   created_at      TIMESTAMP
+#   expires_at      TIMESTAMP                  default created_at + 15 min
+#   redeemed_at     TIMESTAMP                  null = nicht eingelöst
+#
+# =============================================================================

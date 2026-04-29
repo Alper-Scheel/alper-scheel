@@ -1,0 +1,1097 @@
+        /* ════════════════════════════════════════════════════════════════════
+           v3 (Pipely-Stil) — additive Inline-Styles, self-contained.
+           Hell, ruhig, klar. Ein Akzent (Navy), kein Mond-Gold, keine Sterne.
+           Subtile Motion via IntersectionObserver-Reveals + dezenter Parallax.
+           ════════════════════════════════════════════════════════════════════ */
+
+        :root {
+            --pipely-bg:        #FAF8F4;   /* fast Pipely-cremig, etwas heller als bestehendes --bg */
+            --pipely-bg-alt:    #FFFFFF;   /* alternierende Sections */
+            --pipely-text:      #15171A;   /* tiefes Anthrazit, nicht reines Schwarz */
+            --pipely-muted:     #555861;
+            --pipely-subtle:    #8A8D95;
+            --pipely-line:      #E8E5DD;
+            --pipely-accent:    #14284B;   /* dein bestehendes Navy als einziger Akzent */
+            --pipely-accent-hover: #0A1A3A;
+            --pipely-accent-soft: rgba(20, 40, 75, 0.06);
+        }
+
+        body {
+            background: var(--pipely-bg);
+            color: var(--pipely-text);
+        }
+
+        /* WIP-Banner */
+        .wip-banner {
+            background: #FFF3CD;
+            color: #664D03;
+            padding: 0.5rem 1.5rem;
+            text-align: center;
+            font-size: 0.78rem;
+            font-family: var(--font-mono);
+            border-bottom: 1px solid #FFD66B;
+        }
+
+        /* ── Layout-Helfer ────────────────────────────────────────────────── */
+        .v3-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+        }
+
+        .v3-section {
+            padding: 7rem 0;
+        }
+
+        .v3-section-tight { padding: 4.5rem 0; }
+        .v3-section-alt { background: var(--pipely-bg-alt); }
+
+        /* ── Typografie (gezähmt, nicht megaloman) ──────────────────────── */
+        .v3-eyebrow {
+            display: inline-block;
+            font-size: 0.78rem;
+            font-weight: 500;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: var(--pipely-muted);
+            margin-bottom: 1rem;
+        }
+
+        .v3-eyebrow-accent {
+            color: var(--pipely-accent);
+        }
+
+        h1.v3 {
+            font-family: var(--font-serif);
+            font-size: clamp(1.75rem, 2.8vw, 2.5rem);
+            line-height: 1.18;
+            letter-spacing: -0.018em;
+            font-weight: 500;
+            color: var(--pipely-text);
+            margin: 0 0 1.25rem;
+            max-width: 18ch;
+        }
+
+        h2.v3 {
+            font-family: var(--font-serif);
+            font-size: clamp(1.45rem, 2.2vw, 2rem);
+            line-height: 1.22;
+            letter-spacing: -0.01em;
+            font-weight: 500;
+            color: var(--pipely-text);
+            margin: 0 0 1rem;
+            max-width: 22ch;
+        }
+
+        h3.v3 {
+            font-family: var(--font-serif);
+            font-size: 1.2rem;
+            line-height: 1.3;
+            font-weight: 500;
+            color: var(--pipely-text);
+            margin: 0 0 0.6rem;
+        }
+
+        .v3-lead {
+            font-size: 1.075rem;
+            line-height: 1.6;
+            color: var(--pipely-muted);
+            max-width: 56ch;
+            margin: 0 0 1.5rem;
+        }
+
+        .v3-text {
+            font-size: 0.98rem;
+            line-height: 1.65;
+            color: var(--pipely-muted);
+        }
+
+        /* ── Buttons ────────────────────────────────────────────────────── */
+        .v3-btn {
+            display: inline-block;
+            padding: 0.78rem 1.4rem;
+            font-size: 0.95rem;
+            font-weight: 500;
+            text-decoration: none;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            transition: all 180ms ease;
+            line-height: 1;
+            font-family: var(--font-sans);
+            cursor: pointer;
+        }
+
+        .v3-btn-primary {
+            background: var(--pipely-accent);
+            color: #FFFFFF;
+            border-color: var(--pipely-accent);
+        }
+
+        .v3-btn-primary:hover {
+            background: var(--pipely-accent-hover);
+            border-color: var(--pipely-accent-hover);
+            transform: translateY(-1px);
+        }
+
+        .v3-btn-ghost {
+            background: transparent;
+            color: var(--pipely-text);
+            border-color: var(--pipely-line);
+        }
+
+        .v3-btn-ghost:hover {
+            border-color: var(--pipely-text);
+            background: var(--pipely-accent-soft);
+        }
+
+        .v3-btn-row {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        /* ── Navigation (clean, Pipely-Stil) ────────────────────────────── */
+        .v3-nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(250, 248, 244, 0.85);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid transparent;
+            transition: border-color 200ms ease;
+        }
+
+        .v3-nav.is-scrolled { border-bottom-color: var(--pipely-line); }
+
+        .v3-nav-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1.1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .v3-nav-brand {
+            font-family: var(--font-serif);
+            font-size: 1.2rem;
+            font-weight: 500;
+            color: var(--pipely-text);
+            text-decoration: none;
+            letter-spacing: -0.01em;
+        }
+
+        .v3-nav-links {
+            list-style: none;
+            display: flex;
+            gap: 2rem;
+            margin: 0; padding: 0;
+        }
+
+        .v3-nav-links a {
+            font-size: 0.92rem;
+            color: var(--pipely-muted);
+            text-decoration: none;
+            transition: color 150ms ease;
+        }
+
+        .v3-nav-links a:hover { color: var(--pipely-text); }
+
+        @media (max-width: 768px) {
+            .v3-nav-links { display: none; }
+        }
+
+        /* ── Hero-Slider (Pipely-clean, fade-Übergang) ─────────────────── */
+        .v3-hero {
+            padding: 5rem 0 6rem;
+            position: relative;
+        }
+
+        .v3-hero .swiper {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+            overflow: visible;
+        }
+
+        .v3-hero-slide {
+            display: grid;
+            grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+            column-gap: 5rem;
+            align-items: center;
+            min-height: 56vh;
+        }
+
+        .v3-hero-text {
+            max-width: 540px;
+        }
+
+        .v3-hero-visual {
+            position: relative;
+            width: 100%;
+            max-width: 440px;
+            height: 540px;
+            margin-left: auto;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #E8E5DD;
+            border: 1px solid var(--pipely-line);
+            box-shadow: 0 6px 28px rgba(20, 40, 75, 0.08);
+        }
+
+        .v3-hero-visual-placeholder {
+            position: absolute; inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--pipely-subtle);
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            text-align: center;
+            padding: 1rem;
+        }
+
+        /* Bilder in Hero-Visuals und Stack-Cards füllen den Container voll.
+           Wichtig: KEIN position:absolute hier — der Container hat schon
+           explizite Höhe, ein einfaches block-Image mit object-fit reicht
+           und ist deutlich robuster über alle Browser hinweg. */
+        .v3-hero-visual img,
+        .v3-stack-visual img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .v3-stack-visual { background: rgba(255, 255, 255, 0.4); }
+
+        /* Pagination (Pipely-clean: dünne Linie statt Bullets) */
+        .v3-hero-pagination {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 3rem;
+        }
+
+        .v3-hero-pagination .swiper-pagination-bullet {
+            width: 28px;
+            height: 2px;
+            background: var(--pipely-line);
+            opacity: 1;
+            border-radius: 0;
+            margin: 0 !important;
+            transition: background 200ms ease, width 200ms ease;
+        }
+
+        .v3-hero-pagination .swiper-pagination-bullet-active {
+            background: var(--pipely-accent);
+            width: 56px;
+        }
+
+        @media (max-width: 900px) {
+            .v3-hero-slide {
+                grid-template-columns: 1fr;
+                row-gap: 2rem;
+            }
+            .v3-hero-visual {
+                max-width: 320px;
+                height: 320px;
+                margin: 0 auto;
+            }
+        }
+
+        /* ── Drei Versprechen (Drei-Säulen, klar) ──────────────────────── */
+        .v3-pillars {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2.5rem;
+            margin-top: 3rem;
+        }
+
+        .v3-pillar {
+            padding-top: 1.25rem;
+            border-top: 2px solid var(--pipely-text);
+        }
+
+        .v3-pillar h3 {
+            margin: 0.6rem 0 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .v3-pillars { grid-template-columns: 1fr; gap: 2rem; }
+        }
+
+        /* ── Produktfamilie (4-Card-Grid statt Solar-System) ──────────── */
+        .v3-products {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+            margin-top: 3rem;
+        }
+
+        .v3-product-card {
+            background: var(--pipely-bg-alt);
+            border: 1px solid var(--pipely-line);
+            border-radius: 10px;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            transition: border-color 200ms ease, transform 200ms ease, box-shadow 200ms ease;
+            text-decoration: none;
+            color: inherit;
+            min-height: 240px;
+        }
+
+        .v3-product-card:hover {
+            border-color: var(--pipely-accent);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 28px rgba(20, 40, 75, 0.08);
+        }
+
+        .v3-product-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--pipely-accent-soft);
+            color: var(--pipely-accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-serif);
+            font-size: 1.05rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .v3-product-card .label {
+            font-size: 0.75rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--pipely-subtle);
+        }
+
+        .v3-product-card .arrow {
+            margin-top: auto;
+            color: var(--pipely-accent);
+            font-size: 0.92rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            transition: gap 150ms ease;
+        }
+
+        .v3-product-card:hover .arrow { gap: 0.5rem; }
+
+        @media (max-width: 768px) {
+            .v3-products { grid-template-columns: 1fr; }
+        }
+
+        /* ── Vergleichs-Tabelle (Cloud-Abgrenzung, Pipely-clean) ────────── */
+        .v3-compare {
+            width: 100%;
+            max-width: 760px;
+            margin: 2.5rem auto 0;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+        }
+
+        .v3-compare th, .v3-compare td {
+            padding: 1.1rem 1.25rem;
+            text-align: left;
+            border-bottom: 1px solid var(--pipely-line);
+            vertical-align: top;
+        }
+
+        .v3-compare thead th {
+            font-family: var(--font-serif);
+            font-weight: 500;
+            font-size: 1.05rem;
+            color: var(--pipely-text);
+            border-bottom: 2px solid var(--pipely-text);
+        }
+
+        .v3-compare thead th:nth-child(3) {
+            color: var(--pipely-accent);
+        }
+
+        .v3-compare tbody tr td:first-child {
+            font-weight: 500;
+            color: var(--pipely-muted);
+            width: 25%;
+        }
+
+        /* ── Manifest ─────────────────────────────────────────────────── */
+        .v3-manifest-list {
+            list-style: none;
+            counter-reset: principle;
+            padding: 0;
+            margin: 3rem 0 0;
+            max-width: 720px;
+        }
+
+        .v3-manifest-list li {
+            counter-increment: principle;
+            padding: 1.5rem 0 1.5rem 4rem;
+            border-bottom: 1px solid var(--pipely-line);
+            position: relative;
+        }
+
+        .v3-manifest-list li::before {
+            content: "0" counter(principle);
+            position: absolute;
+            left: 0;
+            top: 1.5rem;
+            font-family: var(--font-serif);
+            font-size: 1.25rem;
+            color: var(--pipely-accent);
+            font-weight: 500;
+            letter-spacing: 0;
+        }
+
+        .v3-manifest-list li:last-child { border-bottom: 0; }
+
+        .v3-manifest-list h3 {
+            margin: 0 0 0.4rem;
+        }
+
+        .v3-manifest-list p {
+            margin: 0;
+            color: var(--pipely-muted);
+        }
+
+        /* ── Voice-Pack-Card (hell, Pipely) ───────────────────────────── */
+        .v3-voicepack {
+            max-width: 640px;
+            margin: 3rem auto 0;
+            padding: 2.5rem;
+            background: var(--pipely-bg-alt);
+            border: 1px solid var(--pipely-line);
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .v3-voicepack form {
+            margin-top: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+            max-width: 380px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .v3-voicepack input[type="email"] {
+            padding: 0.85rem 1rem;
+            font-size: 0.95rem;
+            background: var(--pipely-bg);
+            border: 1px solid var(--pipely-line);
+            border-radius: 6px;
+            color: var(--pipely-text);
+            font-family: var(--font-sans);
+        }
+
+        .v3-voicepack input[type="email"]:focus {
+            outline: none;
+            border-color: var(--pipely-accent);
+        }
+
+        .v3-voicepack label.opt-in {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.55rem;
+            text-align: left;
+            font-size: 0.82rem;
+            color: var(--pipely-muted);
+            line-height: 1.45;
+        }
+
+        /* ── Footer (clean) ───────────────────────────────────────────── */
+        .v3-footer {
+            padding: 3rem 0;
+            border-top: 1px solid var(--pipely-line);
+            background: var(--pipely-bg-alt);
+        }
+
+        .v3-footer p {
+            text-align: center;
+            color: var(--pipely-subtle);
+            font-size: 0.85rem;
+            margin: 0;
+        }
+
+        .v3-footer a {
+            color: var(--pipely-muted);
+            text-decoration: none;
+            margin: 0 0.5rem;
+        }
+
+        .v3-footer a:hover { color: var(--pipely-text); }
+
+        /* ── Stacked-Cards-Parallax (Pipely-Signature-Move) ──────────── */
+        .v3-stacked {
+            padding: 4rem 0 0;
+            position: relative;
+        }
+
+        .v3-stacked-intro {
+            max-width: 760px;
+            margin: 0 auto 4rem;
+            text-align: center;
+            padding: 0 1.5rem;
+        }
+
+        .v3-stack-card {
+            position: sticky;
+            border-radius: 24px;
+            padding: 3rem;
+            margin: 0 auto 2rem;
+            max-width: 1200px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            column-gap: 3rem;
+            align-items: center;
+            min-height: 520px;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(20, 40, 75, 0.06);
+        }
+
+        /* Sticky-Tops gestaffelt für sauberes Übereinander-Schieben */
+        .v3-stack-card-1 { top: 90px;  z-index: 1; background: #FAF0D7; }
+        .v3-stack-card-2 { top: 105px; z-index: 2; background: #E5E0FA; }
+        .v3-stack-card-3 { top: 120px; z-index: 3; background: #D8EAE0; }
+        .v3-stack-card-4 { top: 135px; z-index: 4; background: #FAE3DC; }
+
+        .v3-stack-visual {
+            min-height: 360px;
+            height: 100%;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            color: var(--pipely-subtle);
+            font-size: 0.78rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .v3-stack-text h2 {
+            font-family: var(--font-serif);
+            font-size: clamp(1.55rem, 2.4vw, 2.1rem);
+            line-height: 1.2;
+            letter-spacing: -0.01em;
+            font-weight: 500;
+            color: var(--pipely-text);
+            margin: 0 0 1rem;
+            max-width: 18ch;
+        }
+
+        .v3-stack-text .v3-eyebrow {
+            color: var(--pipely-text);
+            opacity: 0.55;
+        }
+
+        .v3-stack-text p {
+            font-size: 1.025rem;
+            line-height: 1.6;
+            color: rgba(21, 23, 26, 0.78);
+            margin: 0 0 1.25rem;
+            max-width: 50ch;
+        }
+
+        .v3-stack-card a {
+            color: var(--pipely-text);
+            text-decoration: none;
+            font-weight: 500;
+            border-bottom: 1px solid currentColor;
+            padding-bottom: 1px;
+            font-size: 0.95rem;
+        }
+
+        @media (max-width: 900px) {
+            .v3-stack-card {
+                grid-template-columns: 1fr;
+                row-gap: 2rem;
+                padding: 2rem;
+                min-height: auto;
+            }
+            .v3-stack-card-1 { top: 70px; }
+            .v3-stack-card-2 { top: 80px; }
+            .v3-stack-card-3 { top: 90px; }
+            .v3-stack-card-4 { top: 100px; }
+        }
+
+        /* ── Trust-Row (Hero-Boden) — ehrlich, keine Fake-Zahlen ─────── */
+        .v3-trust-row {
+            margin-top: 2.5rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.25rem 2rem;
+            align-items: center;
+            font-size: 0.82rem;
+            color: var(--pipely-subtle);
+        }
+
+        .v3-trust-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+        }
+
+        .v3-trust-item::before {
+            content: "";
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--pipely-accent);
+            opacity: 0.6;
+        }
+
+        /* ── Logo-SVG-Stub in der Nav ───────────────────────────────── */
+        .v3-nav-brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .v3-logo-mark {
+            width: 52px;
+            height: 52px;
+            object-fit: contain;
+            display: block;
+            flex-shrink: 0;
+        }
+
+        /* ── Subtile Motion: Fade-up beim Scrollen + Image-Parallax ─── */
+        .v3-reveal {
+            opacity: 0;
+            transform: translateY(24px);
+            transition: opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
+                        transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .v3-reveal.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .v3-reveal-stagger > * {
+            opacity: 0;
+            transform: translateY(16px);
+            transition: opacity 600ms cubic-bezier(0.22, 1, 0.36, 1),
+                        transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .v3-reveal-stagger.is-visible > *:nth-child(1) { transition-delay: 0ms; }
+        .v3-reveal-stagger.is-visible > *:nth-child(2) { transition-delay: 100ms; }
+        .v3-reveal-stagger.is-visible > *:nth-child(3) { transition-delay: 200ms; }
+        .v3-reveal-stagger.is-visible > *:nth-child(4) { transition-delay: 300ms; }
+
+        .v3-reveal-stagger.is-visible > * {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Sanfter Image-Parallax: Hero-Visual bewegt sich beim Scrollen leicht */
+        @media (prefers-reduced-motion: no-preference) {
+            .v3-parallax-soft {
+                will-change: transform;
+            }
+        }
+
+        /* ── Parallax-Section (festes Hintergrundbild, Inhalt scrollt darüber) */
+        .v3-parallax-section {
+            position: relative;
+            isolation: isolate;
+            overflow: hidden;
+            padding: 9rem 0;
+        }
+
+        .v3-parallax-bg {
+            position: absolute;
+            inset: 0;
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;     /* der eigentliche Parallax-Trick */
+            background-repeat: no-repeat;
+            z-index: -2;
+        }
+
+        .v3-parallax-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                180deg,
+                rgba(10, 18, 36, 0.78) 0%,
+                rgba(10, 18, 36, 0.62) 50%,
+                rgba(10, 18, 36, 0.78) 100%
+            );
+            z-index: -1;
+        }
+
+        .v3-parallax-content {
+            position: relative;
+        }
+
+        /* Schrift auf dunklem Hintergrund anpassen */
+        .v3-parallax-section h2.v3,
+        .v3-parallax-section .v3-lead,
+        .v3-parallax-section .v3-text {
+            color: #FAF8F4;
+        }
+
+        .v3-parallax-section .v3-eyebrow.v3-eyebrow-accent {
+            color: #FFD66B;
+        }
+
+        .v3-parallax-section .v3-btn-ghost {
+            color: #FAF8F4;
+            border-color: rgba(250, 248, 244, 0.5);
+        }
+
+        .v3-parallax-section .v3-btn-ghost:hover {
+            border-color: #FAF8F4;
+            background: rgba(250, 248, 244, 0.08);
+        }
+
+        .v3-parallax-section .v3-text a {
+            color: #FFD66B;
+            border-bottom: 1px solid currentColor;
+            padding-bottom: 1px;
+        }
+
+        /* Mobile/Touch: background-attachment:fixed ist auf iOS unzuverlässig.
+           Fallback: normales scrollendes Bild, immer noch hübsch. */
+        @media (hover: none) and (pointer: coarse), (max-width: 720px) {
+            .v3-parallax-bg {
+                background-attachment: scroll;
+            }
+        }
+
+        /* ── Reading-Layout (lange Texte, Rechtsseiten, Manifest) ───────── */
+        .v3-article {
+            padding: 8rem 0 5rem;
+        }
+
+        .v3-reading {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+        }
+
+        .v3-reading h1.v3 {
+            font-size: 3rem;
+            line-height: 1.1;
+            margin: 1rem 0 1.5rem;
+        }
+
+        .v3-reading h2.v3 {
+            font-size: 1.7rem;
+            line-height: 1.25;
+            margin: 3.5rem 0 1rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--pipely-line);
+        }
+
+        .v3-reading h2.v3:first-of-type { border-top: 0; padding-top: 0; }
+
+        .v3-reading h3.v3 {
+            font-size: 1.2rem;
+            line-height: 1.3;
+            margin: 2rem 0 0.5rem;
+        }
+
+        .v3-reading p {
+            color: var(--pipely-text);
+            font-size: 1.05rem;
+            line-height: 1.75;
+            margin: 0 0 1.1rem;
+        }
+
+        .v3-reading p.v3-lead {
+            color: var(--pipely-muted);
+            font-size: 1.25rem;
+            margin-bottom: 2rem;
+            max-width: 56ch;
+        }
+
+        .v3-reading ul, .v3-reading ol {
+            margin: 0 0 1.5rem;
+            padding-left: 1.4rem;
+            color: var(--pipely-text);
+        }
+
+        .v3-reading ul li, .v3-reading ol li {
+            margin-bottom: 0.5rem;
+            line-height: 1.7;
+        }
+
+        .v3-reading a {
+            color: var(--pipely-accent);
+            border-bottom: 1px solid currentColor;
+            padding-bottom: 1px;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .v3-reading a:hover { color: var(--pipely-accent-hover); }
+
+        .v3-reading hr {
+            border: none;
+            border-top: 1px solid var(--pipely-line);
+            margin: 3rem 0;
+        }
+
+        .v3-reading .v3-meta {
+            background: var(--pipely-bg-alt);
+            border: 1px solid var(--pipely-line);
+            border-radius: 8px;
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .v3-reading .v3-meta p { font-size: 0.95rem; margin: 0.25rem 0; }
+
+        .v3-reading .v3-meta strong { color: var(--pipely-text); }
+
+        .v3-reading table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.95rem;
+        }
+
+        .v3-reading table th, .v3-reading table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--pipely-line);
+            vertical-align: top;
+        }
+
+        .v3-reading table th {
+            font-weight: 600;
+            color: var(--pipely-text);
+            border-bottom: 2px solid var(--pipely-text);
+        }
+
+        .v3-reading table tbody tr td:first-child {
+            font-weight: 500;
+            color: var(--pipely-muted);
+            white-space: nowrap;
+        }
+
+        .v3-reading .v3-back {
+            display: inline-block;
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--pipely-line);
+        }
+
+        .v3-reading .v3-stand {
+            color: var(--pipely-subtle);
+            font-size: 0.85rem;
+            font-style: italic;
+            margin-top: 3rem;
+        }
+
+        /* Manifest-spezifische Hervorhebung */
+        .v3-reading blockquote {
+            margin: 1.5rem 0;
+            padding: 1rem 1.5rem;
+            border-left: 3px solid var(--pipely-accent);
+            background: var(--pipely-accent-soft);
+            color: var(--pipely-text);
+            font-style: italic;
+        }
+
+        .v3-reading blockquote p { margin: 0; font-size: 1rem; }
+
+        @media (max-width: 720px) {
+            .v3-reading h1.v3 { font-size: 2.2rem; }
+            .v3-reading h2.v3 { font-size: 1.4rem; }
+            .v3-article { padding: 6rem 0 3rem; }
+        }
+
+        /* ── Sub-Hero (Page-Hero ohne Slider) ────────────────────────────── */
+        .v3-page-hero {
+            padding: 9rem 0 5rem;
+            background: var(--pipely-bg);
+            border-bottom: 1px solid var(--pipely-line);
+        }
+
+        .v3-page-hero .v3-container {
+            text-align: center;
+            max-width: 820px;
+        }
+
+        .v3-page-hero h1.v3 {
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .v3-page-hero p.v3-lead {
+            margin-left: auto;
+            margin-right: auto;
+            max-width: 56ch;
+        }
+
+        /* ── Feature-Row (alternierende Bild/Text-Blöcke, NICHT sticky) ──── */
+        .v3-feature-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+            padding: 5rem 0;
+            border-bottom: 1px solid var(--pipely-line);
+        }
+
+        .v3-feature-row:last-child { border-bottom: 0; }
+
+        .v3-feature-row.reverse > .v3-feature-text { order: 2; }
+        .v3-feature-row.reverse > .v3-feature-visual { order: 1; }
+
+        .v3-feature-text { max-width: 520px; }
+
+        .v3-feature-text h2.v3 {
+            font-size: 2.4rem;
+            line-height: 1.15;
+            margin-bottom: 1.25rem;
+        }
+
+        .v3-feature-text p {
+            color: var(--pipely-muted);
+            font-size: 1.05rem;
+            line-height: 1.7;
+            margin: 0 0 1rem;
+        }
+
+        .v3-feature-text ul {
+            list-style: none;
+            padding: 0;
+            margin: 1.25rem 0;
+        }
+
+        .v3-feature-text ul li {
+            position: relative;
+            padding-left: 1.5rem;
+            margin-bottom: 0.6rem;
+            color: var(--pipely-muted);
+            line-height: 1.6;
+        }
+
+        .v3-feature-text ul li::before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: var(--pipely-accent);
+            font-weight: 600;
+        }
+
+        .v3-feature-text .v3-btn-row { margin-top: 1.5rem; }
+
+        .v3-feature-status {
+            display: inline-block;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            padding: 0.3rem 0.7rem;
+            border-radius: 999px;
+            margin-bottom: 1rem;
+            border: 1px solid var(--pipely-line);
+            color: var(--pipely-muted);
+            background: var(--pipely-bg-alt);
+        }
+
+        .v3-feature-status.live {
+            color: #2A6A3F;
+            border-color: #B8DDC5;
+            background: #EAF5EE;
+        }
+
+        .v3-feature-status.pilot {
+            color: #6A4A1F;
+            border-color: #DDC9A0;
+            background: #F8F0DD;
+        }
+
+        .v3-feature-status.dev {
+            color: #4A4A6A;
+            border-color: #C9C9DD;
+            background: #EEEEF8;
+        }
+
+        .v3-feature-visual {
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1px solid var(--pipely-line);
+            aspect-ratio: 4 / 3;
+            background: var(--pipely-bg-alt);
+        }
+
+        .v3-feature-visual img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        @media (max-width: 900px) {
+            .v3-feature-row {
+                grid-template-columns: 1fr;
+                gap: 2.5rem;
+                padding: 3.5rem 0;
+            }
+            .v3-feature-row.reverse > .v3-feature-text { order: 2; }
+            .v3-feature-row.reverse > .v3-feature-visual { order: 1; }
+            .v3-feature-text h2.v3 { font-size: 1.9rem; }
+        }
+
+        /* ── Status-Übersicht-Tabelle für /produkte ──────────────────────── */
+        .v3-status-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-top: 2.5rem;
+        }
+
+        .v3-status-card {
+            border: 1px solid var(--pipely-line);
+            border-radius: 12px;
+            padding: 1.5rem;
+            background: var(--pipely-bg-alt);
+        }
+
+        .v3-status-card h4 {
+            font-family: var(--font-serif, "Iowan Old Style", Georgia, serif);
+            font-size: 1.1rem;
+            margin: 0 0 0.5rem;
+            color: var(--pipely-text);
+        }
+
+        .v3-status-card .meta {
+            font-size: 0.78rem;
+            color: var(--pipely-subtle);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 0.75rem;
+        }
+
+        .v3-status-card p {
+            font-size: 0.9rem;
+            color: var(--pipely-muted);
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        @media (max-width: 900px) {
+            .v3-status-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 540px) {
+            .v3-status-grid { grid-template-columns: 1fr; }
+        }
+

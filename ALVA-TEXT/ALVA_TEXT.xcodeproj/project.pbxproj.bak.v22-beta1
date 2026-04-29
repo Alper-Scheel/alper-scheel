@@ -10,9 +10,6 @@
 		7F08494E2F98A3B00068FC55 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 7F08494D2F98A3B00068FC55 /* WhisperKit */; };
 		A10000010000000100000001 /* ALVA_TEXTApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10001010000000100000001 /* ALVA_TEXTApp.swift */; };
 		A10000010000000100000099 /* PersonalizationProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10001010000000100000099 /* PersonalizationProfile.swift */; };
-		B10000010000000100000099 /* ProMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001010000000100000099 /* ProMode.swift */; };
-		C10000010000000100000099 /* PersonalizationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10001010000000100000099 /* PersonalizationStore.swift */; };
-		D10000010000000100000099 /* PersonalizationTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10001010000000100000099 /* PersonalizationTabView.swift */; };
 		A10000020000000100000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10001020000000100000001 /* AppDelegate.swift */; };
 		A10000030000000100000001 /* AppCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10001030000000100000001 /* AppCoordinator.swift */; };
 		A10000040000000100000001 /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10001040000000100000001 /* AudioRecorder.swift */; };
@@ -35,9 +32,6 @@
 		A10000F00000000100000001 /* ALVA-TEXT.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "ALVA-TEXT.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10001010000000100000001 /* ALVA_TEXTApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ALVA_TEXTApp.swift; sourceTree = "<group>"; };
 		A10001010000000100000099 /* PersonalizationProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalizationProfile.swift; sourceTree = "<group>"; };
-		B10001010000000100000099 /* ProMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProMode.swift; sourceTree = "<group>"; };
-		C10001010000000100000099 /* PersonalizationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalizationStore.swift; sourceTree = "<group>"; };
-		D10001010000000100000099 /* PersonalizationTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalizationTabView.swift; sourceTree = "<group>"; };
 		A10001020000000100000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A10001030000000100000001 /* AppCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCoordinator.swift; sourceTree = "<group>"; };
 		A10001040000000100000001 /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
@@ -83,9 +77,6 @@
 			children = (
 				A10001010000000100000001 /* ALVA_TEXTApp.swift */,
 				A10001010000000100000099 /* PersonalizationProfile.swift */,
-				B10001010000000100000099 /* ProMode.swift */,
-				C10001010000000100000099 /* PersonalizationStore.swift */,
-				D10001010000000100000099 /* PersonalizationTabView.swift */,
 				A10001020000000100000001 /* AppDelegate.swift */,
 				A10001030000000100000001 /* AppCoordinator.swift */,
 				A10001040000000100000001 /* AudioRecorder.swift */,
@@ -191,9 +182,6 @@
 			files = (
 				A10000010000000100000001 /* ALVA_TEXTApp.swift in Sources */,
 				A10000010000000100000099 /* PersonalizationProfile.swift in Sources */,
-				B10000010000000100000099 /* ProMode.swift in Sources */,
-				C10000010000000100000099 /* PersonalizationStore.swift in Sources */,
-				D10000010000000100000099 /* PersonalizationTabView.swift in Sources */,
 				A10000020000000100000001 /* AppDelegate.swift in Sources */,
 				A10000030000000100000001 /* AppCoordinator.swift in Sources */,
 				A10000040000000100000001 /* AudioRecorder.swift in Sources */,
@@ -222,14 +210,14 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = ALVA_TEXT/ALVA_TEXT.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 23;
+				CURRENT_PROJECT_VERSION = 22;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 4CU8CL46JX;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ALVA_TEXT/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 2.2.0-beta1;
+				MARKETING_VERSION = 2.1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.adserica.alvatext;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -245,14 +233,14 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = ALVA_TEXT/ALVA_TEXT.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 23;
+				CURRENT_PROJECT_VERSION = 22;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 4CU8CL46JX;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ALVA_TEXT/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 2.2.0-beta1;
+				MARKETING_VERSION = 2.1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.adserica.alvatext;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;

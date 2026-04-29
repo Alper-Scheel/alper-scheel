@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Act-Transparenz — AdLuna</title>
+    <meta name="description" content="Wie AdLuna mit den Anforderungen des EU AI Act umgeht. Transparenz über Modelle, Risikoklassen, Datenverarbeitung, Personalisierung und Verantwortlichkeiten — produktscharf für ALVA-TEXT (v2.1.3 / v2.2) und AdMed.">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles-v3.css">
+</head>
+<body>
+
+<nav class="v3-nav" id="v3-nav">
+    <div class="v3-nav-inner">
+        <a href="index.html" class="v3-nav-brand">
+            <img class="v3-logo-mark" src="assets/logo/AdLuna-Logo-solo-dunkel-512.png" alt="AdLuna" width="52" height="52">
+            <span>AdLuna</span>
+        </a>
+        <ul class="v3-nav-links">
+            <li><a href="produkte.html">Produkte</a></li>
+            <li><a href="manifest.html">Manifest</a></li>
+            <li><a href="admed.html">AdMed</a></li>
+            <li><a href="alva-text.html">ALVA-TEXT</a></li>
+            <li><a href="impressum.html">Impressum</a></li>
+        </ul>
+    </div>
+</nav>
+
+<article class="v3-article">
+    <div class="v3-reading">
+        <span class="v3-eyebrow v3-eyebrow-accent">Transparenz</span>
+        <h1 class="v3">AI-Act-Transparenz</h1>
+        <p class="v3-lead">Wie wir bei AdLuna mit dem EU AI Act umgehen — in voller Offenheit, weil Datenschutz und KI-Verantwortung für uns keine Gegensätze sind, sondern dieselbe Pflicht. Diese Seite ist produktscharf und wird mit jedem Release aktualisiert.</p>
+
+        <h2 class="v3">1. Unsere Haltung zum AI Act</h2>
+        <p>Der EU AI Act (Verordnung 2024/1689) ist seit August 2024 in Kraft und tritt stufenweise in Anwendung. Er ist weltweit der erste umfassende Rechtsrahmen für KI-Systeme — und nach unserer festen Überzeugung <strong>richtig</strong>. Die Verordnung nimmt Hersteller und Betreiber in die Pflicht, nicht die Nutzer. Sie differenziert nach Risikoklassen. Sie verlangt Transparenz.</p>
+        <p>Wir betrachten die Einhaltung des AI Act nicht als Belastung, sondern als Mindestmaß. Über das, was der Gesetzgeber verlangt, gehen wir an mehreren Stellen hinaus — diese Seite dokumentiert das in den Details, die wir jetzt schon kennen.</p>
+
+        <h2 class="v3">2. Risikoeinordnung pro Produkt</h2>
+        <p>Nach der Einordnung des AI Act (Art. 5–7 sowie Art. 50) sind unsere aktuellen Produkte:</p>
+
+        <h3 class="v3" id="alva-text">ALVA-TEXT (Diktat-Assistent)</h3>
+        <div class="v3-meta">
+            <p><strong>Einordnung:</strong> KI-System mit begrenztem Risiko (Art. 50 AI Act).</p>
+            <p><strong>Begründung:</strong> Sprach-zu-Text-Transkription ohne kritische Entscheidungsfunktion. Keine automatisierten Entscheidungen über Menschen (Bewerbung, Kreditvergabe, Strafverfolgung, etc.).</p>
+            <p><strong>Transparenzpflicht:</strong> Nutzer werden jederzeit informiert, dass es sich um ein KI-System handelt — das Produkt ist als KI-Werkzeug positioniert, jeder Output ist sichtbar und korrigierbar bevor er in eine Anwendung eingefügt wird.</p>
+            <p><strong>Stand:</strong> v2.1.3 (Build 22), in Vorbereitung v2.2.</p>
+        </div>
+
+        <h3 class="v3">AdMed (Medizinische Dokumentation)</h3>
+        <div class="v3-meta">
+            <p><strong>Einordnung:</strong> <em>In Prüfung.</em> Möglicherweise Hochrisiko-System nach Anhang III Nr. 5 AI Act, falls die Dokumentation direkt in klinische Entscheidungen einfließt.</p>
+            <p><strong>Unsere Haltung:</strong> Wir behandeln AdMed <em>vorsorglich</em> nach den Anforderungen für Hochrisiko-Systeme. Unabhängig von der endgültigen rechtlichen Einordnung implementieren wir: Risikomanagement-System, Datenqualitätskontrolle, technische Dokumentation, Logging der Systemaktivitäten, Menschliche Aufsicht durch den behandelnden Arzt.</p>
+            <p><strong>Das ist unser Beispiel</strong> für das Prinzip: <em>Lieber strengere Maßstäbe anlegen als nötig, als später nachjustieren zu müssen.</em></p>
+        </div>
+
+        <h2 class="v3">3. Eingesetzte KI-Modelle</h2>
+        <p>Transparenz beginnt bei den Modellen, die wir verwenden. Wir verwenden ausschließlich Open-Source- oder lizenzierte Modelle, deren Herkunft und Trainingsansätze öffentlich dokumentiert sind:</p>
+        <table>
+            <thead>
+                <tr><th>Modell</th><th>Lizenz</th><th>Einsatz in</th><th>Ausführung</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Whisper (OpenAI)</td><td>MIT</td><td>ALVA-TEXT — Transkription</td><td>Lokal auf Mac (Apple Silicon)</td></tr>
+                <tr><td>GPT-4o / GPT-4o-mini (OpenAI)</td><td>API, kommerziell</td><td>ALVA-TEXT — Adaptive-Mode, Reverse-Übersetzung, Custom-Modes (v2.2)</td><td>Cloud, opt-in, eigener Schlüssel des Nutzers</td></tr>
+                <tr><td>Qwen2.5 Medical / Med42</td><td>Apache 2.0 / forschungsfreundlich</td><td>AdMed — medizinische Dokumentationsstruktur</td><td>Lokal auf Klinik-Hardware (Jetson Orin)</td></tr>
+            </tbody>
+        </table>
+
+        <h2 class="v3">4. Trainingsdaten — was wir tun und was nicht</h2>
+        <p><strong>Wir trainieren nicht auf Nutzerdaten.</strong> Punkt. Die von uns verwendeten Modelle wurden von Dritten (OpenAI, Alibaba, etc.) trainiert. Wir selbst übernehmen diese Modelle in der dokumentierten Version und passen sie nicht mit Kundendaten an.</p>
+        <p>Falls wir in Zukunft modellspezifisches Fine-Tuning einsetzen, würden wir dafür ausschließlich synthetische, eigens lizenzierte oder explizit freigegebene Trainingsdaten verwenden — und das an dieser Stelle transparent dokumentieren.</p>
+
+        <h2 class="v3">5. Personalisierung in ALVA-TEXT (v2.2)</h2>
+        <p>Mit v2.2 führt ALVA-TEXT eine umfassende Personalisierungsschicht ein. Weil Personalisierung schnell mit „heimlichem Lernen über Nutzer" verwechselt wird, hier explizit, was passiert — und vor allem, was <em>nicht</em> passiert:</p>
+
+        <h3 class="v3">Was personalisierbar ist</h3>
+        <ul>
+            <li><strong>Identität</strong> — Anredename, Initialen, Firmenkontext, Hauptsprache, Sign-off-Vorlagen.</li>
+            <li><strong>Stil-Defaults pro Kanal</strong> — Du/Sie, Emoji-Toleranz, No-Go-Phrasen, Stil-Marker (z.&nbsp;B. „nüchtern", „warm").</li>
+            <li><strong>Wortschatz</strong> — Eigennamen, Fachbegriffe, Korrektur-Mappings.</li>
+            <li><strong>Profile</strong> — mehrere parallele Identitäten (privat, beruflich, Mandantengespräch).</li>
+            <li><strong>Custom Dictation Modes</strong> — eigene Hotkeys mit eigenem System-Prompt.</li>
+            <li><strong>Adaptive Learning</strong> (opt-in) — Korrektur-Erlebnisse werden lokal in einer Lern-Datei akkumuliert und in den System-Prompt eingebaut.</li>
+        </ul>
+
+        <h3 class="v3">Wo diese Daten leben</h3>
+        <p>Sämtliche Personalisierungs-Daten liegen ausschließlich auf dem Mac des Nutzers in <code>~/Library/Application Support/ALVA-TEXT/</code> sowie als API-Schlüssel im macOS-Schlüsselbund. AdLuna hat zu keinem Zeitpunkt Zugriff auf diese Daten. Es gibt keinen Server-Sync, keine Profil-Wolke, kein zentrales Lern-Modell. Beim Wechsel des Macs müssen Nutzer ihre Profile bewusst exportieren/importieren.</p>
+
+        <h3 class="v3">Was bei Cloud-Modi gesendet wird</h3>
+        <p>Im Adaptive-Mode oder bei Custom-Modes mit Cloud-Anbindung werden an die OpenAI-API gesendet:</p>
+        <ul>
+            <li>Der lokal transkribierte Text (kein Audio).</li>
+            <li>Der System-Prompt mit dem aktuellen Personalisierungs-Block (Name, Stil-Defaults, ggf. Wortschatz, ggf. relevante Lern-Erlebnisse).</li>
+            <li>Der Kanal-/App-Kontext (z.&nbsp;B. „aktuelle App: Mail.app", „Tonalität: formell").</li>
+        </ul>
+        <p>In keinem Fall werden gesendet: Audio, Mac-Identifier, Verlauf vergangener Diktate, andere Profile. Mit der <em>Cloud-Privacy-Feinsteuerung</em> (Cluster 7) lässt sich pro Modus konfigurieren, was tatsächlich rausgehen darf — inklusive einer Vorschau, was der API-Aufruf konkret enthielte.</p>
+
+        <h3 class="v3">Adaptive Learning — wie Lernen ohne Server geht</h3>
+        <p>Wenn ein Nutzer einen Adaptive-Vorschlag korrigiert (z.&nbsp;B. „Sehr geehrter Herr X" → „Hallo Conny"), kann ALVA-TEXT auf Wunsch dieses Korrektur-Erlebnis in eine lokale Lern-Datei schreiben. Bei künftigen Diktaten in vergleichbarem Kontext wird dieses Erlebnis als Beispiel in den System-Prompt eingebaut. Es gibt:</p>
+        <ul>
+            <li><strong>Kein Modell-Update</strong> — wir trainieren keine Gewichte.</li>
+            <li><strong>Keine Server-Übertragung</strong> — alles bleibt im <code>Application Support</code>-Ordner.</li>
+            <li><strong>Volle Kontrolle</strong> — Anzeigen, einzelnes Löschen, Komplett-Reset jederzeit über die Einstellungen.</li>
+            <li><strong>Default = aus</strong> — Adaptive Learning ist opt-in.</li>
+        </ul>
+
+        <h3 class="v3">Kontakt- &amp; Kalender-Integration</h3>
+        <p>Mit v2.2 kann ALVA-TEXT auf Wunsch (opt-in, mit ausdrücklicher macOS-Berechtigung) lokal auf <strong>Kontakte</strong> (Contacts.framework) und <strong>Kalender</strong> (EventKit) zugreifen, um Befehle wie „Schreib Conny eine Mail" oder „Finde den Termin mit Marius diese Woche" auszuführen. Die Daten werden ausschließlich lokal verarbeitet, nicht in den Cloud-Modus übertragen, es sei denn, der Nutzer aktiviert dies explizit pro Modus. Die macOS-Berechtigung kann jederzeit über Systemeinstellungen → Datenschutz &amp; Sicherheit zurückgezogen werden.</p>
+
+        <h2 class="v3">6. Menschliche Aufsicht (Art. 14 AI Act)</h2>
+        <p>Der AI Act verlangt für risikorelevante Anwendungen eine wirksame menschliche Aufsicht. Bei uns bedeutet das konkret:</p>
+        <ul>
+            <li>Alle KI-Ausgaben sind für den Nutzer <strong>sichtbar und überprüfbar</strong>, bevor sie wirksam werden.</li>
+            <li>Keine automatisierten Aktionen ohne Nutzerfreigabe — Auto-Paste in ALVA-TEXT kann jederzeit deaktiviert werden, ab v2.2 sogar pro Modus mit Pre-Confirm-Lightbox.</li>
+            <li>In AdMed: Kein medizinisches Protokoll geht ohne ärztliche Freigabe in die Patientenakte.</li>
+            <li>Fehlerhafte Ausgaben können jederzeit korrigiert werden, ohne dass Systemzustände verloren gehen.</li>
+            <li>Lern-Erlebnisse aus Adaptive Learning sind einsehbar und einzeln löschbar — der Nutzer behält die Hoheit über das, was die App über ihn „weiß".</li>
+        </ul>
+
+        <h2 class="v3">7. Verpflichtungen als Anbieter (Art. 26 / 27 AI Act)</h2>
+        <table>
+            <thead><tr><th>Verpflichtung</th><th>Umsetzung bei AdLuna</th></tr></thead>
+            <tbody>
+                <tr><td>Risikomanagement-System</td><td>Interne Risikoanalyse pro Produkt und Release, dokumentierter Change-Review vor jedem Major-Update.</td></tr>
+                <tr><td>Datenqualitätskriterien</td><td>Nur öffentlich dokumentierte Modelle mit nachvollziehbarer Herkunft. Keine Verwendung von Nutzerdaten zum Modell-Training.</td></tr>
+                <tr><td>Technische Dokumentation</td><td>Versionierte Architektur-Docs, Model-Cards, Personalisierungs-Datenflüsse offengelegt (diese Seite, Datenschutzerklärung).</td></tr>
+                <tr><td>Logging / Nachvollziehbarkeit</td><td>Lokale Audit-Logs auf Kundensystemen — in ALVA-TEXT optional über Einstellungen → Erweitert. Keine Telemetrie zu uns.</td></tr>
+                <tr><td>Transparenz gegenüber Nutzern</td><td>Diese Seite, klare Kennzeichnung in der App, Pre-Confirm-Lightbox für sensible Modi (v2.2).</td></tr>
+                <tr><td>Cybersicherheit</td><td>Code-Signing mit Apple Developer-ID „AdPolis GmbH", Notarization, Stapling, Verzicht auf Cloud-Abhängigkeiten im Default-Pfad.</td></tr>
+                <tr><td>Recht auf Erklärung (Art. 86)</td><td>In ALVA-TEXT v2.2: „Was sah die KI?" — Anzeige des System-Prompts, der für eine Adaptive-Antwort tatsächlich geschickt wurde, inklusive aller Personalisierungs-Komponenten.</td></tr>
+            </tbody>
+        </table>
+
+        <h2 class="v3">8. Was wir <em>nicht</em> tun</h2>
+        <p>Eine Negativliste hilft beim Verstehen unserer Architektur:</p>
+        <ul>
+            <li>Wir sammeln keine Telemetrie über Nutzungsverhalten.</li>
+            <li>Wir führen keine A/B-Tests mit Nutzerdaten durch.</li>
+            <li>Wir trainieren keine Modelle auf Diktaten, Texten, Korrekturen oder Lern-Erlebnissen.</li>
+            <li>Wir synchronisieren keine Profile in eine Cloud.</li>
+            <li>Wir sehen keine Kontakte, keine Kalender-Einträge, keine Mail-Inhalte.</li>
+            <li>Wir geben keine Daten an Werbenetzwerke, Analytics-Anbieter oder andere Dritte.</li>
+        </ul>
+
+        <h2 class="v3">9. Kontakt bei AI-Act-Fragen</h2>
+        <p>Für Fragen zur AI-Act-Compliance, zu Transparenzberichten oder zu spezifischen Systemeigenschaften: <a href="mailto:datenschutz@adluna.de">datenschutz@adluna.de</a>.</p>
+
+        <h2 class="v3">10. Was wir zukünftig ergänzen</h2>
+        <p>Diese Seite ist ein Anfang, kein Abschluss. Mit jedem neuen Produkt, jeder substantiellen Änderung und mit dem Inkrafttreten weiterer AI-Act-Bestimmungen wird sie aktualisiert. Wir werden insbesondere ergänzen:</p>
+        <ul>
+            <li>Vollständige Model-Cards für alle eingesetzten KI-Modelle.</li>
+            <li>Jährlicher Transparenzbericht (erstmals Frühjahr 2027).</li>
+            <li>Post-Release-Bericht zu v2.2 mit detaillierten Personalisierungs-Datenflüssen pro Cluster.</li>
+            <li>Konkrete Bewertungen nach §§ 10 ff AI Act, sobald die delegierten Rechtsakte vollständig sind.</li>
+        </ul>
+
+        <p class="v3-stand">Stand: April 2026 · Bezieht sich auf ALVA-TEXT v2.1.3 mit v2.2-Vorausblick und AdMed v1.5.</p>
+
+        <p class="v3-back"><a href="index.html">← Zurück zur Startseite</a></p>
+    </div>
+</article>
+
+<footer class="v3-footer">
+    <div class="v3-container">
+        <p>
+            © 2026 AdLuna GmbH ·
+            <a href="manifest.html">Manifest</a> ·
+            <a href="ai-act.html">AI-Act</a> ·
+            <a href="impressum.html">Impressum</a> ·
+            <a href="datenschutz.html">Datenschutz</a> ·
+            <a href="agb.html">AGB</a> ·
+            <a href="lizenzen.html">Lizenzen</a>
+        </p>
+    </div>
+</footer>
+
+</body>
+</html>

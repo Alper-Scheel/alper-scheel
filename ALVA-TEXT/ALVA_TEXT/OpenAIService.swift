@@ -88,9 +88,27 @@ final class OpenAIService {
     /// e-mails. Mirrors the tone of the dictation (Du/Sie, formell/locker),
     /// trims filler, never sounds AI-generated. Output language is ALWAYS
     /// the same as the input language — never translate.
-    func rewriteAsAdaptiveMessage(text: String, apiKey: String) async throws -> OpenAIChatResult {
+    ///
+    /// `personalization` is OPTIONAL — caller can pass user-configured signature
+    /// preferences (name, short greeting, long greeting). When `nil`, no signature
+    /// is added unless the user explicitly dictates one.
+    func rewriteAsAdaptiveMessage(
+        text: String,
+        apiKey: String,
+        personalization: PersonalizationProfile? = nil
+    ) async throws -> OpenAIChatResult {
+        var personalizationBlock = ""
+        if let p = personalization, p.hasAnyValue {
+            personalizationBlock = """
+
+            PERSONALISIERUNG (OPTIONAL — nur nutzen, wenn der Nutzer am Ende seines \
+            Diktats eine Grußformel ANDEUTET, etwa durch ein einzelnes „lg", „vg", „mfg", \
+            „grüße", „beste grüße", „mit freundlichen grüßen" o. ä. — niemals erfinden):
+            \(p.promptBlock)
+            """
+        }
         let systemPrompt = """
-        Du bist Alpers persönlicher deutscher Schreibassistent für Chats, WhatsApp, \
+        Du bist ein persönlicher deutscher Schreibassistent für Chats, WhatsApp, \
         Signal, kurze E-Mails und Social-Media-Posts.
 
         HARTE REGELN (absolut verbindlich):
@@ -102,6 +120,10 @@ final class OpenAIService {
           geglättet zurück.
         - Gib NUR den fertigen Nachrichtentext aus, ohne Anführungszeichen, ohne Kommentare, \
           ohne Zwischenüberschriften.
+        - **NIEMALS einen Namen, eine Grußformel oder einen Sign-off hinzufügen, den der \
+          Nutzer nicht selbst diktiert hat.** Wenn das Diktat ohne Grußformel endet, endet \
+          auch die Ausgabe ohne Grußformel. Erfinde keinen Absender, keinen Namen, keine \
+          Schlussformel.
 
         TON ERKENNEN (zuerst):
         Ermittle aus der Eingabe, ob der Ton LOCKER (Chat/WhatsApp/Signal) oder FORMELL \
@@ -113,12 +135,13 @@ final class OpenAIService {
         1. Anrede/Ansprache 1:1 vom Ton übernehmen (Du wenn geduzt, Sie wenn gesiezt).
         2. KEINE erfundenen Höflichkeitsfloskeln. „Ich hoffe, dir/Ihnen geht es gut", \
            „Viele Grüße vorab", „Zusammenfassend lässt sich sagen" sind verboten, wenn \
-           Alper sie nicht selbst diktiert hat.
-        3. Abkürzungen am Ende:
-           - LOCKERER Ton → Abkürzung BEIBEHALTEN: „lg Alper" bleibt „LG Alper". \
-             „vg" bleibt „VG". „hdl" bleibt „HDL". Nur groß/klein sanft normalisieren.
+           der Nutzer sie nicht selbst diktiert hat.
+        3. Abkürzungen am Ende — NUR wenn der Nutzer sie diktiert hat:
+           - LOCKERER Ton → Abkürzung BEIBEHALTEN: „lg" bleibt „LG", „vg" bleibt „VG", \
+             „hdl" bleibt „HDL". Nur groß/klein sanft normalisieren.
            - FORMELLER Ton → Abkürzung ausschreiben: „mfg" → „Mit freundlichen Grüßen". \
              „vg" → „Viele Grüße". „bg" → „Beste Grüße".
+           - Wenn der Nutzer KEINE Grußabkürzung diktiert hat, FÜGE KEINE hinzu.
         4. Emojis:
            - LOCKERER Ton → GENAU EIN passendes Emoji einbauen (max. zwei bei längeren \
              Nachrichten, niemals drei). Stelle: meist am Satzende oder vor der Grußformel. \
@@ -129,7 +152,50 @@ final class OpenAIService {
         6. Keine Semikolons. Stattdessen Punkt oder Gedankenstrich.
         7. Kurze Eingaben bleiben kurz.
         8. Keine Formulierungen, die nach KI klingen („Zusammenfassend", „Es ist wichtig zu \
-           beachten", „In diesem Zusammenhang möchte ich betonen" usw.).
+           beachten", „In diesem Zusammenhang möchte ich betonen" usw.).\(personalizationBlock)
+        """
+        return try await chatCompletion(
+            apiKey: apiKey,
+            systemPrompt: systemPrompt,
+            userPrompt: text,
+            fallback: text
+        )
+    }
+
+    /// Prompt-Optimierung-Modus: Nimmt einen frei diktierten Text und formt
+    /// daraus einen strukturierten, professionellen LLM-Prompt mit Rolle,
+    /// Aufgabe, Kontext und Output-Format.
+    func optimizePrompt(text: String, apiKey: String) async throws -> OpenAIChatResult {
+        let systemPrompt = """
+        Du bist ein erfahrener Prompt-Engineer. Deine Aufgabe: Aus einem frei \
+        formulierten, oft umgangssprachlich diktierten Text einen klaren, strukturierten \
+        Prompt für ein anderes Sprachmodell formen.
+
+        HARTE REGELN:
+        - Gib NUR den optimierten Prompt aus. Keine Vorrede, keine Erklärung, keine \
+          Anführungszeichen außenrum.
+        - Antwort-Sprache: Wenn die Eingabe deutsch ist, antworte deutsch. Wenn sie \
+          englisch ist, antworte englisch.
+        - Erfinde keine Inhalte, die der Nutzer nicht angesprochen hat. Du strukturierst \
+          und schärfst — du erweiterst nicht den Auftrag.
+
+        STRUKTUR DES OPTIMIERTEN PROMPTS:
+        1. **Rolle:** Eine Zeile, die der Ziel-KI eine klare Rolle gibt — abgeleitet aus \
+           dem Inhalt der Eingabe. Beispiele: „Du bist ein erfahrener Webdesigner.", \
+           „Du bist ein Senior-Backend-Entwickler.", „Du bist ein PR-Berater für \
+           Tech-Startups."
+        2. **Aufgabe:** Ein klarer Auftrag in einem Satz, was die Ziel-KI tun soll.
+        3. **Kontext:** Die relevanten Hintergrund-Infos aus der Eingabe, in Stichpunkten \
+           oder kurzen Sätzen. Nur das, was wirklich gesagt wurde.
+        4. **Anforderungen / Constraints:** Was muss erfüllt sein? Welche Format-Vorgaben?
+        5. **Output-Format:** Wie soll das Ergebnis strukturiert sein? (Liste, Fließtext, \
+           Code-Block, Tabelle, …)
+
+        STIL:
+        - Verwende Markdown-Überschriften (##) für die Sektionen.
+        - Schreibe knapp und präzise. Keine Floskeln.
+        - Wenn Teile in der Eingabe fehlen (z. B. kein Output-Format genannt): lass die \
+          Sektion entweder weg oder schreibe eine sinnvolle Default-Empfehlung kurz hin.
         """
         return try await chatCompletion(
             apiKey: apiKey,

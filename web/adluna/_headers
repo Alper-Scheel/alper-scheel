@@ -1,0 +1,16 @@
+# Security-Header für alle Pages — Cloudflare-Pages-Format
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+# Lange Cache-Zeit für statische Assets
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/styles.css
+  Cache-Control: public, max-age=86400
+
+/styles-v3.css
+  Cache-Control: public, max-age=86400

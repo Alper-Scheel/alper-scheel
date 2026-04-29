@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WIREFRAME v2 — AdLuna Re-Strukturierung</title>
+    <meta name="description" content="WIP — Wireframe-Skelett der neuen AdLuna-Landing-Page, basierend auf PPT-Hybrid-Konzept und Briefing vom 26.04.2026. NICHT für Produktion.">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- Swiper.js — leichtgewichtige Slider-Library (MIT, ~150 KB)
+         Wird sowohl vom Hero-Slider (5 Bewegungen) als auch vom
+         AdLuna-Universum-Block genutzt. -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+
+    <style>
+        /* WIP-Banner ganz oben — soll nur im Wireframe stören, nicht produktiv */
+        .wip-banner {
+            background: #FFF3CD;
+            color: #664D03;
+            padding: 0.5rem 1.5rem;
+            text-align: center;
+            font-size: 0.85rem;
+            font-family: var(--font-mono);
+            border-bottom: 2px solid #FFD66B;
+        }
+    </style>
+</head>
+<body>
+
+<div class="wip-banner">
+    🚧 WIREFRAME v2 — Strukturskelett, noch keine finalen Inhalte. Nicht für Veröffentlichung.
+</div>
+
+<!-- ──────────────────────────────────────────────────────────────────────
+     NAVIGATION
+     ────────────────────────────────────────────────────────────────────── -->
+<nav class="nav">
+    <div class="nav-inner">
+        <a href="/" class="nav-brand">AdLuna</a>
+        <ul class="nav-links">
+            <li><a href="#produkte">Produkte</a></li>
+            <li><a href="#philosophie">Philosophie</a></li>
+            <li><a href="#admed">AdMed</a></li>
+            <li><a href="#voices">Voices <span style="opacity:0.6;font-size:0.75em;">(kostenlos)</span></a></li>
+            <li><a href="#kontakt">Kontakt</a></li>
+        </ul>
+    </div>
+</nav>
+
+<!-- ──────────────────────────────────────────────────────────────────────
+     SECTION 1 — Hero-Slider (5 Bewegungen, dunkler Hintergrund)
+     Inhalte gemäß Konzept-Briefing §2.
+     ────────────────────────────────────────────────────────────────────── -->
+<section class="section-luna luna-stars hero-slider" id="hero">
+    <div class="swiper hero-swiper">
+        <div class="swiper-wrapper">
+
+            <!-- Slide 1 — Dachmarke -->
+            <div class="swiper-slide">
+                <span class="section-eyebrow">AdLuna</span>
+                <h1>Deine KI gehört dir.</h1>
+                <p class="subhead">Persönliche KI. Lokal betrieben. Unter deiner Kontrolle. Cloud nur, wenn du sie willst.</p>
+                <div class="hero-actions">
+                    <a href="#philosophie" class="btn btn-primary">Philosophie verstehen</a>
+                    <a href="#produkte" class="btn btn-secondary">Produkte ansehen</a>
+                </div>
+            </div>
+
+            <!-- Slide 2 — ALVA-TEXT Conversion -->
+            <div class="swiper-slide">
+                <span class="section-eyebrow">ALVA-TEXT</span>
+                <h1>Tippen ist optional.</h1>
+                <p class="subhead">Sprich. Dein Mac schreibt. In jeder Sprache. Lokal, kostenlos, ohne Cloud-Zwang.</p>
+                <div class="hero-actions">
+                    <a href="https://github.com/Alper-Scheel/alper-scheel/releases/latest/download/ALVA-TEXT.dmg" class="btn btn-primary" download>ALVA-TEXT herunterladen</a>
+                    <a href="/alva-text.html" class="btn btn-secondary">Funktionen ansehen</a>
+                </div>
+            </div>
+
+            <!-- Slide 3 — Sicherheits-Positionierung -->
+            <div class="swiper-slide">
+                <span class="section-eyebrow">Prinzip</span>
+                <h1>Sicherheit zuerst. Cloud optional.</h1>
+                <p class="subhead">Große Modelle sind Werkzeuge. Deine eigene KI ist die Vertrauensschicht dazwischen — sie entscheidet, wann ein großes Modell überhaupt gefragt wird.</p>
+                <div class="hero-actions">
+                    <a href="#philosophie" class="btn btn-primary">AdLuna-Philosophie</a>
+                </div>
+            </div>
+
+            <!-- Slide 4 — AdMed B2B-Proof -->
+            <div class="swiper-slide">
+                <span class="section-eyebrow">AdMed</span>
+                <h1>Medizinische Dokumentation, lokal.</h1>
+                <p class="subhead">Patientendaten bleiben im Haus. Verarbeitung auf eigener Hardware, on-premise. Für Kliniken, Praxen und sensible Organisationen.</p>
+                <div class="hero-actions">
+                    <a href="/admed.html" class="btn btn-primary">AdMed entdecken</a>
+                    <a href="#kontakt" class="btn btn-secondary">Pilotgespräch anfragen</a>
+                </div>
+            </div>
+
+            <!-- Slide 5 — Universum-Brücke -->
+            <div class="swiper-slide">
+                <span class="section-eyebrow">AdLuna-Universum</span>
+                <h1>Eine Familie loyaler Werkzeuge.</h1>
+                <p class="subhead">ALVA-TEXT, AdMed, ALVA und mehr — KI, die wächst und dabei ihre Loyalität behält. Eine KI mit genau einem Herrn.</p>
+                <div class="hero-actions">
+                    <a href="#produkte" class="btn btn-primary">Alle Produkte</a>
+                    <a href="#philosophie" class="btn btn-secondary">Manifest lesen</a>
+                </div>
+            </div>
+
+        </div>
+        <div class="swiper-pagination"></div>
+    </div>
+</section>
+
+
+<!-- ──────────────────────────────────────────────────────────────────────
+     SECTION 2 — „Was AdLuna anders macht" (Drei-Säulen, hell)
+     ────────────────────────────────────────────────────────────────────── -->
+<section>
+    <div class="container">
+        <span class="section-eyebrow">Was AdLuna anders macht</span>
+        <h2>Drei Versprechen.</h2>
+
+        <div class="pillars" style="margin-top: 2.5rem;">
+            <div class="pillar">
+                <span class="pillar-label">Lokal zuerst</span>
+                <h3>Eigentum + Kontrolle.</h3>
+                <p>Jedes AdLuna-Produkt läuft standardmäßig auf deiner Hardware. Cloud-Anrufe nur, wenn du sie aktiv erlaubst. Keine Telemetrie, kein Abfluss.</p>
+            </div>
+
+            <div class="pillar">
+                <span class="pillar-label">Du entscheidest</span>
+                <h3>Cloud nur, wenn du sie willst.</h3>
+                <p>Große Modelle sind nützlich für bestimmte Aufgaben — z.B. anspruchsvolle Übersetzungen. Aber: deine KI fragt vorher, was sie weitergeben darf.</p>
+            </div>
+
+            <div class="pillar">
+                <span class="pillar-label">Wachsende Familie</span>
+                <h3>ALVA-TEXT → AdMed → ALVA.</h3>
+                <p>Wir bauen Werkzeuge, die zueinander passen — vom Diktat über medizinische Dokumentation bis zum vollwertigen persönlichen KI-Assistenten.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ──────────────────────────────────────────────────────────────────────
+     SECTION 3 — AdLuna-Universum-Slider (Solar-System-Block, dunkel)
+     Pure CSS-Orbits + JS-Aktivierung der Planeten.
+     ────────────────────────────────────────────────────────────────────── -->
+<section class="section-luna luna-stars universe-slider" id="produkte">
+    <div class="container" style="text-align: center;">
+        <span class="section-eyebrow">AdLuna-Universum</span>
+        <h2 style="color: var(--luna-text);">Loyale KI-Werkzeuge.</h2>
+        <p class="subhead" style="color: var(--luna-text-muted); max-width: 580px; margin: 0.5rem auto 0;">
+            Eine wachsende Familie von Produkten, die alle dem gleichen Prinzip folgen: lokal zuerst, Cloud optional, du entscheidest.
+        </p>
+
+        <div class="universe-stage">
+            <!-- Sonne (Mitte) -->
+            <div class="universe-sun">AdLuna</div>
+
+            <!-- Orbits (CSS-only Bahnen) -->
+            <div class="universe-orbit universe-orbit-1"></div>
+            <div class="universe-orbit universe-orbit-2"></div>
+            <div class="universe-orbit universe-orbit-3"></div>
+
+            <!-- Planeten (klickbar; Positionen werden per JS animiert) -->
+            <button class="universe-planet is-active" data-planet="alva-text"
+                    style="top: 50%; left: 50%; transform: translate(-260px, -10px);">
+                ALVA-TEXT
+            </button>
+            <button class="universe-planet" data-planet="admed"
+                    style="top: 50%; left: 50%; transform: translate(180px, -90px);">
+                AdMed
+            </button>
+            <button class="universe-planet" data-planet="alva"
+                    style="top: 50%; left: 50%; transform: translate(260px, 80px);">
+                ALVA
+            </button>
+            <button class="universe-planet" data-planet="voices"
+                    style="top: 50%; left: 50%; transform: translate(-130px, 160px);">
+                Voices
+            </button>
+        </div>
+
+        <!-- Detail-Panel: füllt sich beim Planeten-Klick -->
+        <div class="universe-detail" id="universe-detail">
+            <span class="eyebrow">ALVA-TEXT</span>
+            <h3 style="color: var(--luna-text);">Diktat für macOS.</h3>
+            <p>Hotkey halten, sprechen, loslassen — der transkribierte Text landet direkt in der App, in der du arbeitest. Whisper läuft lokal auf deinem Mac. Optional: OpenAI-Funktionen für Höflich-/Nachrichten-Modus + Übersetzung in 25+ Sprachen.</p>
+            <p style="margin-top: 1rem;"><a href="/alva-text.html">Mehr zu ALVA-TEXT →</a></p>
+        </div>
+    </div>
+</section>
+
+
+<!-- ──────────────────────────────────────────────────────────────────────
+     SECTION 4 — ALVA-TEXT Conversion-Anker (hell)
+     Direkter Download + Use Cases. Nutzt das hochgeladene
+     Mikrofon-zu-Laptop-Bild als Hero-Visual (siehe TODO unten).
+     ────────────────────────────────────────────────────────────────────── -->
+<section class="subtle">
+    <div class="container">
+        <span class="section-eyebrow">Sofort nutzbar</span>
+        <h2>ALVA-TEXT — kostenlos, lokal, sofort.</h2>
+
+        <!-- TODO: Visual hier. Optionen:
+             - Mikrofon-zu-Laptop-Bild aus den hochgeladenen Assets (warm geschnitten)
+             - Animierter Inline-Demo (CSS) falls leichter
+             - Statisches Screenshot des UI -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border); padding: 2rem; margin-top: 2rem; text-align: center; color: var(--text-muted); font-style: italic;">
+            [Visual-Platzhalter — Mikrofon → Sprachwellen → Laptop mit Text]
+        </div>
+
+        <div class="pillars" style="margin-top: 2.5rem;">
+            <div class="pillar">
+                <span class="pillar-label">WhatsApp + Mail</span>
+                <h3>Schreiben, ohne zu tippen.</h3>
+                <p>Halte ⌃, sprich deine Nachricht, lass los — der Text landet, wo dein Cursor ist. Mit ⌘ wird der Stil chat-tauglich, mit ⌥ bürotauglich.</p>
+            </div>
+            <div class="pillar">
+                <span class="pillar-label">Mehrsprachig</span>
+                <h3>Deutsch sprechen, fremdsprachig senden.</h3>
+                <p>Während der Aufnahme: Fn+F1 → Englisch, F2 → Französisch, F3 → Italienisch. Die deutsche Fassung wird ersetzt, nicht angehängt.</p>
+            </div>
+            <div class="pillar">
+                <span class="pillar-label">Offline</span>
+                <h3>Funktioniert ohne Internet.</h3>
+                <p>Whisper-Small läuft komplett auf deinem Mac. Kein API-Schlüssel, keine Verbindung, keine Spuren in der Cloud nötig.</p>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 3rem;">
+            <a href="https://github.com/Alper-Scheel/alper-scheel/releases/latest/download/ALVA-TEXT.dmg" class="btn btn-primary" download style="font-size: 1rem; padding: 1rem 1.5rem;">ALVA-TEXT herunterladen</a>
+            <p style="margin-top: 0.85rem; color: var(--text-muted); font-size: 0.9rem;">
+                Lieber als ZIP? <a href="https://github.com/Alper-Scheel/alper-scheel/releases/latest/download/ALVA-TEXT.zip" download>ALVA-TEXT.zip</a>
+            </p>
+        </div>
+    </div>
+</section>
+
+
+<!-- ──────────────────────────────────────────────────────────────────────
+     SECTION 5 — Cloud-Abgrenzung (hell, Vergleichs-Tabelle)
+     Sachlich, ohne Bashing. Aus Konzept-Briefing §6.
+     ────────────────────────────────────────────────────────────────────── -->
+<section>
+    <div class="container">
+        <div class="container-reading" style="padding: 0;">
+            <span class="section-eyebrow">Wir sind anders</span>
+            <h2>Und das ist Absicht.</h2>
+            <p class="lead">Die großen Modelle von OpenAI, Anthropic und Google sind beeindruckende Werkzeuge — wir nutzen sie selbst, wenn es sinnvoll ist. AdLuna baut keine Konkurrenz dazu. AdLuna baut die Schicht dazwischen.</p>
+
+            <table class="compare-table">
+                <thead>
+                    <tr>
+                        <th>&nbsp;</th>
+                        <th>Cloud-only KI</th>
+                        <th>AdLuna</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>Daten</td><td>Werden geteilt</td><td>Bleiben bei dir</td></tr>
+                    <tr><td>Modell</td><td>Großes Generalmodell für alle</td><td>Lokal + große Modelle, wenn du sie willst</td></tr>
+                    <tr><td>Verfügbarkeit</td><td>Internet erforderlich</td><td>Funktioniert offline</td></tr>
+                    <tr><td>Kontrolle</td><td>Bei der Plattform</td><td>Bei dir</td></tr>
+                    <tr><td>Updates</td><td>Kommen ungefragt</td><td>Du entscheidest</td></tr>
+                </tbody>
+            </table>
+
+            <p style="margin-top: 2rem; font-style: italic; color: var(--text-muted);">
+                Damit du Werkzeug nutzen kannst, ohne es selbst zu werden.
+            </p>
+        </div>
+    </div>
+</section>
+
+
+<!-- ──────────────────────────────────────────────────────────────────────
+     SECTION 6 — AdMed-Teaser (hell)
+     ────────────────────────────────────────────────────────────────────── -->
+<section class="subtle" id="admed">
+    <div class="container">
+        <span class="section-eyebrow">AdMed</span>
+        <h2>KI für Medizin, lokal verarbeitet.</h2>
+        <p class="lead" style="max-width: 680px;">
+            Patientendaten gehören nicht in die Cloud. AdMed arbeitet auf der Hardware der Klinik oder Praxis — und liefert trotzdem Sprach-zu-Dokument-Workflows auf dem Niveau, das man von großen Cloud-Modellen erwartet.
+        </p>
+        <div style="margin-top: 1.5rem;">
+            <a href="/admed.html" class="btn btn-primary">AdMed im Detail</a>
+            <a href="#kontakt" class="btn btn-secondary" style="margin-left: 0.5rem;">Pilotgespräch anfragen</a>
+        </div>
+    </div>
+</section>
+
+
+<!-- ──────────────────────────────────────────────────────────────────────
+     SECTION 7 — AdLuna-Voices (Lead-Magnet, dunkel)
+     E-Mail + PIN-Aktivierung, Opt-In für Mailings.
+     Architektur: Wiederverwendung der adluna-platform-api.
+     ────────────────────────────────────────────────────────────────────── -->
+<section class="section-luna" id="voices">
+    <div class="container" style="text-align: center;">
+        <span class="section-eyebrow">AdLuna-Voices · kostenlos</span>
+        <h2 style="color: var(--luna-text);">Stimmen, die dir gehören.</h2>
+        <p class="subhead" style="color: var(--luna-text-muted); max-width: 620px; margin: 0.5rem auto 0;">
+            Ausgewählte TTS-Stimmen, die wir selbst trainiert haben — etwa „Alva mit französischem Akzent". Nutzbar mit jedem TTS-fähigen Tool. Kostenlos, unter Creative-Commons-Lizenz.
+        </p>
+
+        <div class="voicepack-card">
+            <h3>Hol dir die ALVA-Stimme.</h3>
+            <p style="color: var(--luna-text-muted); margin-top: 0.25rem;">
+                Wir schicken dir per Mail einen 6-stelligen Code. Mit dem Code lädst du die Voice-Datei runter — gleicher Mechanismus wie bei ALVA-TEXT.
+            </p>
+
+            <form class="voicepack-form" id="voicepack-form" onsubmit="return false;">
+                <input type="email" placeholder="deine@email.de" required>
+                <label class="opt-in">
+                    <input type="checkbox" required>
+                    <span>Ja, ich möchte gelegentlich Updates zu neuen Voices und AdLuna-Produkten per Mail erhalten. Jederzeit kündbar.</span>
+                </label>
+                <button type="submit" class="btn btn-primary">Code anfordern</button>
+            </form>
+
+            <p style="font-size: 0.75rem; color: var(--luna-text-subtle); margin-top: 1.25rem;">
+                Wir nutzen deine Adresse nur für den AdLuna-Newsletter. Kein Verkauf, keine Drittanbieter.
+                Details: <a href="/datenschutz.html" style="color: var(--luna-gold);">Datenschutz</a>.
+            </p>
+        </div>
+
+        <p style="font-size: 0.85rem; color: var(--luna-text-muted); margin-top: 2rem;">
+            Auch via <a href="https://huggingface.co/AdLuna" style="color: var(--luna-gold);">Hugging Face</a> verfügbar.
+        </p>
+    </div>
+</section>
+
+
+<!-- ──────────────────────────────────────────────────────────────────────
+     SECTION 8 — Manifest / Philosophie (hell, lange Lesefläche)
+     5 Prinzipien aus Konzept-Briefing §7.
+     ────────────────────────────────────────────────────────────────────── -->
+<section id="philosophie">
+    <div class="container">
+        <div class="container-reading" style="padding: 0;">
+            <span class="section-eyebrow">Philosophie</span>
+            <h2>Das AdLuna-Manifest.</h2>
+            <p class="lead">Fünf Prinzipien, die wir in jedem Produkt, jedem Update und jeder Entscheidung gegen uns gelten lassen.</p>
+
+            <ol style="counter-reset: principle; list-style: none; padding: 0; margin-top: 2.5rem;">
+                <li style="counter-increment: principle; padding: 1.25rem 0; border-bottom: 1px solid var(--border); position: relative; padding-left: 3rem;">
+                    <span style="position: absolute; left: 0; top: 1.25rem; font-family: var(--font-serif); font-size: 1.5rem; color: var(--accent);">01</span>
+                    <h3 style="margin-bottom: 0.4rem;">Lokal zuerst.</h3>
+                    <p style="margin-bottom: 0;">KI läuft auf deiner Hardware. Cloud ist optional, nicht Voraussetzung.</p>
+                </li>
+                <li style="counter-increment: principle; padding: 1.25rem 0; border-bottom: 1px solid var(--border); position: relative; padding-left: 3rem;">
+                    <span style="position: absolute; left: 0; top: 1.25rem; font-family: var(--font-serif); font-size: 1.5rem; color: var(--accent);">02</span>
+                    <h3 style="margin-bottom: 0.4rem;">Du entscheidest.</h3>
+                    <p style="margin-bottom: 0;">Wann ein großes Modell gefragt wird, was es darf, was es weiß.</p>
+                </li>
+                <li style="counter-increment: principle; padding: 1.25rem 0; border-bottom: 1px solid var(--border); position: relative; padding-left: 3rem;">
+                    <span style="position: absolute; left: 0; top: 1.25rem; font-family: var(--font-serif); font-size: 1.5rem; color: var(--accent);">03</span>
+                    <h3 style="margin-bottom: 0.4rem;">Datenhoheit.</h3>
+                    <p style="margin-bottom: 0;">Deine Audiodaten, deine Texte, dein Kontext. Nichts geht raus, ohne dass du es willst.</p>
+                </li>
+                <li style="counter-increment: principle; padding: 1.25rem 0; border-bottom: 1px solid var(--border); position: relative; padding-left: 3rem;">
+                    <span style="position: absolute; left: 0; top: 1.25rem; font-family: var(--font-serif); font-size: 1.5rem; color: var(--accent);">04</span>
+                    <h3 style="margin-bottom: 0.4rem;">Loyalität.</h3>
+                    <p style="margin-bottom: 0;">Eine KI mit genau einem Herrn — der Person, der sie gehört.</p>
+                </li>
+                <li style="counter-increment: principle; padding: 1.25rem 0; position: relative; padding-left: 3rem;">
+                    <span style="position: absolute; left: 0; top: 1.25rem; font-family: var(--font-serif); font-size: 1.5rem; color: var(--accent);">05</span>
+                    <h3 style="margin-bottom: 0.4rem;">Wachstum statt Lock-in.</h3>
+                    <p style="margin-bottom: 0;">Wir bauen Werkzeuge, die du behalten kannst — auch ohne uns.</p>
+                </li>
+            </ol>
+        </div>
+    </div>
+</section>
+
+
+<!-- ──────────────────────────────────────────────────────────────────────
+     FOOTER
+     ────────────────────────────────────────────────────────────────────── -->
+<footer class="footer">
+    <div class="container">
+        <p style="text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+            © 2026 AdLuna GmbH ·
+            <a href="/impressum.html">Impressum</a> ·
+            <a href="/datenschutz.html">Datenschutz</a> ·
+            <a href="/agb.html">AGB</a> ·
+            <a href="/lizenzen.html">Lizenzen</a>
+        </p>
+    </div>
+</footer>
+
+
+<!-- ──────────────────────────────────────────────────────────────────────
+     JAVASCRIPT — Hero-Slider + Universum-Interaktion
+     ────────────────────────────────────────────────────────────────────── -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Hero-Slider mit Auto-Advance
+    new Swiper(".hero-swiper", {
+        loop: true,
+        autoplay: { delay: 7000, disableOnInteraction: false },
+        speed: 600,
+        pagination: { el: ".swiper-pagination", clickable: true },
+        keyboard: { enabled: true },
+    });
+
+    // Universum-Interaktion: Klick auf Planet → Detail-Panel füllen
+    const planetData = {
+        "alva-text": {
+            eyebrow: "ALVA-TEXT",
+            title: "Diktat für macOS.",
+            text: "Hotkey halten, sprechen, loslassen — der transkribierte Text landet direkt in der App, in der du arbeitest. Whisper läuft lokal auf deinem Mac. Optional: OpenAI-Funktionen für Höflich-/Nachrichten-Modus + Übersetzung in 25+ Sprachen.",
+            link: "/alva-text.html",
+            linkText: "Mehr zu ALVA-TEXT →"
+        },
+        "admed": {
+            eyebrow: "AdMed",
+            title: "Medizinische Dokumentation, lokal.",
+            text: "Patientendaten gehören nicht in die Cloud. AdMed arbeitet auf der Hardware der Klinik oder Praxis und liefert Sprach-zu-Dokument-Workflows auf Cloud-Niveau — ohne dass ein Datum das Haus verlässt.",
+            link: "/admed.html",
+            linkText: "Mehr zu AdMed →"
+        },
+        "alva": {
+            eyebrow: "ALVA",
+            title: "Persönlicher KI-Assistent.",
+            text: "Eigener Name, eigene Stimme, eigene Regeln, eigene Recheninstanz. ALVA wird der Assistent, der nur dir gehört und nur dich kennt — auf deinem Mac, deinem Server, deiner Hardware.",
+            link: "#",
+            linkText: "In Entwicklung — Newsletter abonnieren ↓"
+        },
+        "voices": {
+            eyebrow: "AdLuna-Voices",
+            title: "TTS-Stimmen, kostenlos.",
+            text: "Ausgewählte synthetische Stimmen, die wir selbst trainiert haben. Frei nutzbar mit jedem TTS-fähigen Tool. Eine kleine Lead-Magnet-Form weiter unten.",
+            link: "#voices",
+            linkText: "Voice-Pack holen →"
+        }
+    };
+
+    const detail = document.getElementById("universe-detail");
+    document.querySelectorAll(".universe-planet").forEach(btn => {
+        btn.addEventListener("click", () => {
+            document.querySelectorAll(".universe-planet").forEach(b => b.classList.remove("is-active"));
+            btn.classList.add("is-active");
+            const key = btn.dataset.planet;
+            const d = planetData[key];
+            if (!d) return;
+            detail.innerHTML = `
+                <span class="eyebrow">${d.eyebrow}</span>
+                <h3 style="color: var(--luna-text);">${d.title}</h3>
+                <p>${d.text}</p>
+                <p style="margin-top: 1rem;"><a href="${d.link}">${d.linkText}</a></p>
+            `;
+        });
+    });
+
+    // Voice-Pack-Form-Stub (POST später an api.adluna.de/v1/voicepacks/request)
+    document.getElementById("voicepack-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        alert("Wireframe: hier kommt der POST an api.adluna.de/v1/voicepacks/request.");
+    });
+});
+</script>
+
+</body>
+</html>

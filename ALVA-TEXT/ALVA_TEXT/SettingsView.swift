@@ -24,6 +24,10 @@ struct SettingsView: View {
                 .tag("languages")
                 .tabItem { Label("Sprachen", systemImage: "character.bubble") }
 
+            PersonalizationTab()
+                .tag("personalization")
+                .tabItem { Label("Persönlich", systemImage: "person.text.rectangle") }
+
             HistoryTab()
                 .tag("history")
                 .tabItem { Label("Verlauf", systemImage: "clock.arrow.circlepath") }
@@ -1231,7 +1235,7 @@ struct OnboardingView: View {
 
     let onFinish: () -> Void
 
-    private let totalSteps = 4
+    private let totalSteps = 5
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1252,10 +1256,11 @@ struct OnboardingView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     switch step {
-                    case 0: welcomePage
-                    case 1: apiKeyPage
-                    case 2: accessibilityPage
-                    case 3: inputMonitoringPage
+                    case 0: modePage
+                    case 1: welcomePage
+                    case 2: apiKeyPage
+                    case 3: accessibilityPage
+                    case 4: inputMonitoringPage
                     default: EmptyView()
                     }
                 }
@@ -1289,11 +1294,129 @@ struct OnboardingView: View {
     }
 
     private var canAdvance: Bool {
-        // API-Key ist optional. Kein erzwungenes Blockieren mehr.
-        true
+        // Schritt 0 ist die Modus-Wahl (Standard vs. Pro). Erst weitergehen,
+        // wenn der User sich entschieden hat — sonst ist v2.2 nicht initialisiert.
+        // Die übrigen Schritte sind frei (API-Key bleibt optional).
+        if step == 0 {
+            return coordinator.proMode != .unset
+        }
+        return true
     }
 
     // Pages
+
+    @ViewBuilder
+    private var modePage: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Wie magst du es lieber?")
+                .font(.title2)
+                .bold()
+            Text("ALVA-TEXT gibt es in zwei Geschmäckern. Beide kostenfrei. Du kannst jederzeit umschalten — die Frage ist nur, womit du startest.")
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 12) {
+                modeCard(
+                    title: "Standard",
+                    subtitle: "Schlank · sofort einsatzbereit",
+                    bullets: [
+                        "Sauber diktieren in jede App",
+                        "Lokal über Whisper, kein Account nötig",
+                        "Adaptive-Mode mit nüchternem Default",
+                        "Mehrsprachigkeit über F-Tasten"
+                    ],
+                    selected: coordinator.proMode == .standard,
+                    action: { coordinator.proMode = .standard }
+                )
+
+                modeCard(
+                    title: "Pro",
+                    subtitle: "Volle Personalisierung",
+                    bullets: [
+                        "Eigene Identität, Stil, Sign-offs",
+                        "Wortschatz & Eigennamen",
+                        "Mehrere Profile in der Menüleiste",
+                        "Adaptive Learning, Custom Modes, Prompt-Optimizer"
+                    ],
+                    selected: coordinator.proMode == .pro,
+                    action: { coordinator.proMode = .pro }
+                )
+            }
+            .padding(.top, 4)
+
+            if coordinator.proMode == .unset {
+                HStack(spacing: 6) {
+                    Image(systemName: "hand.point.up.left.fill")
+                    Text("Wähle eine Variante, dann geht's weiter.")
+                }
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
+            } else {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Text("Gewählt: \(coordinator.proMode.germanShortLabel) — du kannst das später jederzeit ändern.")
+                }
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
+            }
+        }
+    }
+
+    /// Eine der zwei Mode-Kacheln auf der Mode-Page.
+    @ViewBuilder
+    private func modeCard(
+        title: String,
+        subtitle: String,
+        bullets: [String],
+        selected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(title)
+                        .font(.title3)
+                        .bold()
+                    Spacer()
+                    if selected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(Color.accentColor)
+                            .font(.title3)
+                    }
+                }
+                Text(subtitle)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Divider().padding(.vertical, 2)
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(bullets, id: \.self) { line in
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text("•")
+                                .foregroundStyle(.secondary)
+                            Text(line)
+                                .font(.callout)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(selected ? Color.accentColor : Color.secondary.opacity(0.18),
+                            lineWidth: selected ? 2 : 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
 
     @ViewBuilder
     private var welcomePage: some View {

@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /_redirects
+Disallow: /_headers
+
+Sitemap: https://adluna.de/sitemap.xml
