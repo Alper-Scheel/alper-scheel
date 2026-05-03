@@ -54,6 +54,11 @@ final class OpenAIService {
 
         var request = URLRequest(url: URL(string: "https://api.openai.com/v1/audio/transcriptions")!)
         request.httpMethod = "POST"
+        // v2.1.6: Timeout setzen — verhindert 60-Sek-Hänger bei OpenAI-Latenz-
+        // Spikes. Audio-Upload kann etwas dauern, aber 30 s reichen reichlich
+        // für ein 60-Sek-Diktat. Wenn Cloud nicht in 30 s antwortet, fällt
+        // der Auto-Modus auf Lokal zurück.
+        request.timeoutInterval = 30
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
 
         let boundary = "Boundary-\(UUID().uuidString)"
@@ -182,6 +187,11 @@ final class OpenAIService {
 
         var request = URLRequest(url: URL(string: "https://api.openai.com/v1/chat/completions")!)
         request.httpMethod = "POST"
+        // v2.1.6: Timeout 12 s — Chat-Completions sind klein und schnell.
+        // Bei OpenAI-Latenz-Spikes wartet die App max. 12 s, statt 60 s
+        // (URLSession-Default). Verhindert das „Endlos-Rädchen"-Symptom
+        // beim zweiten Hotkey-Trigger.
+        request.timeoutInterval = 12
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 

@@ -28,15 +28,23 @@ struct ActivationView: View {
 
             Spacer(minLength: 0)
 
-            if let err = errorMessage {
-                Label(err, systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.red)
-                    .font(.footnote)
-            }
-            if let info = infoMessage {
-                Label(info, systemImage: "info.circle.fill")
-                    .foregroundStyle(.secondary)
-                    .font(.footnote)
+            // v2.1.5: Im Done-Step keine Error/Info-Messages mehr anzeigen.
+            // Nach erfolgreicher Aktivierung können Background-Checks
+            // (License-Refresh, Daily-Heartbeat) noch HTTP-Errors werfen
+            // (z.B. 500 wegen DB-Race) — die User-Bedeutung ist aber Null,
+            // die Aktivierung selbst ist durch. Den User mit „Server-Antwort
+            // 500" in Rot zu konfrontieren ist UX-Killer (#B13).
+            if step != .done {
+                if let err = errorMessage {
+                    Label(err, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                        .font(.footnote)
+                }
+                if let info = infoMessage {
+                    Label(info, systemImage: "info.circle.fill")
+                        .foregroundStyle(.secondary)
+                        .font(.footnote)
+                }
             }
         }
         .padding(24)
@@ -49,7 +57,8 @@ struct ActivationView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("ALVA-TEXT aktivieren")
                 .font(.title2.weight(.semibold))
-            Text("Beta-Zugang mit deiner E-Mail freischalten.")
+            // v2.1.5: kein „Beta-Zugang"-Wording mehr (#B12)
+            Text("Vollzugang mit deiner E-Mail freischalten.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
@@ -115,8 +124,11 @@ struct ActivationView: View {
                 .foregroundStyle(.green)
             Text("Aktivierung abgeschlossen")
                 .font(.title3.weight(.semibold))
-            if case .active(let status, let tier, _) = state.phase {
-                Text("Status: **\(status)** · Tier: **\(tier.rawValue)**")
+            // v2.1.5: keine technischen Server-Strings („Status: beta · Tier: full")
+            // mehr im UI — die sind für den Endnutzer Kauderwelsch (#B12).
+            // Stattdessen nur die geschäftlich relevante Aussage.
+            if case .active(_, let tier, _) = state.phase, tier != .limited {
+                Text("Voller Funktionsumfang freigeschaltet.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

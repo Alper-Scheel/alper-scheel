@@ -139,7 +139,71 @@ final class AppCoordinator: ObservableObject {
     @Published var lastTranscript: String = UserDefaults.standard.string(forKey: "lastTranscript") ?? ""
     @Published var lastRewrittenText: String = UserDefaults.standard.string(forKey: "lastRewritten") ?? ""
     @Published var apiKey: String = AppCoordinator.loadInitialAPIKey() {
-        didSet { KeychainStore.set(apiKey, for: "openaiApiKey") }
+        didSet {
+            KeychainStore.set(apiKey, for: "openaiApiKey")
+            // v2.1.6: API-Key-Validation (#B14)
+            // Bei jeder Key-Änderung asynchron gegen OpenAI testen, damit
+            // ungültige/abgelaufene Keys sofort sichtbar gemacht werden.
+            // Vorher hat die App den Key wortlos gespeichert und ist erst
+            // beim ersten Cloud-Aufruf gefailt — der User kannte die Ursache
+            // nie und glaubte, die App sei kaputt.
+            apiKeyValidation = apiKey.isEmpty ? .empty : .checking
+            if !apiKey.isEmpty {
+                Task { await validateAPIKey(apiKey) }
+            }
+        }
+    }
+
+    // v2.1.6: Validation-Status für den OpenAI-Key.
+    enum APIKeyValidation: Equatable {
+        case empty           // kein Key gesetzt — Lokal-Modus reicht
+        case checking        // läuft gerade ein Test-Request
+        case valid           // OpenAI hat den Key bestätigt
+        case invalid(String) // 401 — Key abgelehnt
+        case quotaExceeded   // 429 — Account-Quota oder Rate-Limit
+        case networkError    // konnte nicht prüfen, Key gespeichert aber Status unklar
+    }
+
+    @Published private(set) var apiKeyValidation: APIKeyValidation = .empty
+
+    /// Prüft den Key gegen OpenAI's `/v1/models`-Endpoint. 200 → valid,
+    /// 401 → invalid, 429 → quota, alles andere → networkError.
+    private func validateAPIKey(_ key: String) async {
+        guard let url = URL(string: "https://api.openai.com/v1/models") else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 8
+        request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                apiKeyValidation = .networkError
+                return
+            }
+            switch http.statusCode {
+            case 200:
+                apiKeyValidation = .valid
+            case 401:
+                apiKeyValidation = .invalid("Schlüssel von OpenAI abgelehnt (401). Auf platform.openai.com prüfen oder neu generieren.")
+            case 429:
+                apiKeyValidation = .quotaExceeded
+            default:
+                apiKeyValidation = .networkError
+            }
+        } catch {
+            apiKeyValidation = .networkError
+        }
+    }
+
+    /// Wird einmal beim Coordinator-Start aufgerufen, damit ein bereits
+    /// im Keychain liegender Key direkt beim App-Launch validiert wird.
+    func validateStoredAPIKeyOnLaunch() {
+        if apiKey.isEmpty {
+            apiKeyValidation = .empty
+        } else {
+            apiKeyValidation = .checking
+            Task { await validateAPIKey(apiKey) }
+        }
     }
 
     /// One-time migration: if the key still lives in UserDefaults (from
@@ -457,7 +521,31 @@ final class AppCoordinator: ObservableObject {
         }
         return .local
     }() {
-        didSet { UserDefaults.standard.set(transcriptionBackend.rawValue, forKey: "transcriptionBackend") }
+        didSet {
+            UserDefaults.standard.set(transcriptionBackend.rawValue, forKey: "transcriptionBackend")
+            // v2.1.6.1: Erzwinge sofortiges Persistieren, damit die User-Wahl
+            // einen Mac-Sleep / App-Nap überlebt, auch wenn macOS den
+            // Prozess unmittelbar danach terminiert (#B-Wake).
+            UserDefaults.standard.synchronize()
+        }
+    }
+
+    /// v2.1.6.1: Re-Hydration nach Mac-Wake.
+    ///
+    /// macOS kann den App-Prozess während Sleep beenden (App Nap / Memory
+    /// Pressure). Beim Wake wird die App neu gestartet, der Init-Closure
+    /// liest UserDefaults frisch — was funktionieren SOLLTE, aber wir
+    /// erzwingen es zusätzlich für den Fall, dass der App-Prozess durch-
+    /// gehend läuft und nur Property-Reset-Effekte gab. Wird vom AppDelegate
+    /// auf `NSWorkspace.didWakeNotification` getriggert.
+    @MainActor
+    func rehydrateUserPreferences() {
+        if let raw = UserDefaults.standard.string(forKey: "transcriptionBackend"),
+           let parsed = TranscriptionBackend(rawValue: raw),
+           parsed != transcriptionBackend {
+            transcriptionBackend = parsed
+            print("ALVA wake: transcriptionBackend re-hydrated → \(parsed.rawValue)")
+        }
     }
 
     private var recordingMode: HotkeyMode?
@@ -490,6 +578,8 @@ final class AppCoordinator: ObservableObject {
         hotkeys.start()
         refreshPermissionStates()
         startPermissionPolling()
+        // v2.1.6: API-Key-Validation beim App-Start (#B14)
+        validateStoredAPIKeyOnLaunch()
     }
 
     private func startPermissionPolling() {
@@ -574,44 +664,57 @@ final class AppCoordinator: ObservableObject {
     /// (CGEventTap, PasteService) mit dem aktualisierten Trust-Status
     /// frisch initialisiert werden.
     private func scheduleAutoRestart() {
+        // v2.1.4: Auto-Restart deaktiviert.
+        //
+        // Hintergrund: Der frühere Auto-Restart sollte den macOS-TCC-Cache-
+        // Bug umgehen, bei dem `AXIsProcessTrusted()` für den laufenden
+        // Prozess auch nach erteilter Permission noch `false` liefert. In
+        // der Praxis hat der Auto-Restart aber eine Endlosschleife erzeugt:
+        // jeder neue Prozess sah AX wieder false, requestPermissions()
+        // triggerte den TCC-Dialog, User klickte, Polling sah Wechsel,
+        // Auto-Restart, Loop.
+        //
+        // Sauberere Variante: User wird per Banner gebeten, ALVA-TEXT
+        // einmal manuell zu beenden und neu zu öffnen, falls der Toggle
+        // bereits gesetzt ist aber die App es nicht erkennt.
         guard !pendingAutoRestart else { return }
         pendingAutoRestart = true
-        UserDefaults.standard.set(Date(), forKey: Self.lastAutoRestartKey)
-        print("ALVA: scheduling auto-restart in 2 s after user-initiated permission grant")
-
-        // 2 s Delay damit:
-        // (a) macOS den TCC-Status committen kann
-        // (b) der User einen kurzen visuellen Bestätigung-Moment hat
-        //     (Status-Anzeige im UI flippt von rot auf grün, dann erst
-        //     restart) — gibt das Gefühl „okay es hat geklappt".
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
-            guard let self = self else { return }
-            self.restartApp()
-        }
+        print("ALVA: auto-restart suppressed (v2.1.4) — user must restart manually if permission state is stale")
+        recordError("Erlaubnis registriert. Bitte ALVA-TEXT einmal manuell beenden und neu öffnen, damit macOS den Status synchronisiert.")
     }
 
     func requestPermissions() {
+        // v2.1.4: TCC-Permissions (Bedienungshilfen, Eingabeüberwachung)
+        // werden NICHT mehr automatisch beim App-Start angefragt.
+        //
+        // Vorher löste das einen System-Dialog aus, der mitten ins Onboarding
+        // platzte und neben dem ALVA-Onboarding-Fenster + Settings-Fenster
+        // ein drittes parallel laufendes UI-Element erzeugte. Ergebnis: Chaos.
+        //
+        // Neu: Die Onboarding-Pages „Bedienungshilfen" und „Eingabeüberwachung"
+        // fragen die Permissions explizit an — durch User-Klick auf den Button
+        // „Erlaubnis erteilen". Dadurch ein klarer, linearer Flow:
+        // Schritt 1 Welcome → Schritt 2 Aktivierung → Schritt 3 OpenAI-Key →
+        // Schritt 4 Bedienungshilfen → Schritt 5 Eingabeüberwachung.
+        //
+        // Mikrofon-Permission bleibt hier — der Aufruf ist non-blocking und
+        // löst keinen System-Dialog aus, solange er nicht im Aufnahme-Pfad
+        // genutzt wird.
         recorder.requestPermission()
-
-        // Bedienungshilfen: Idempotent rufen — macOS zeigt den Dialog
-        // sowieso nur einmal. Der frühere `didPromptAccessibility`-
-        // UserDefaults-Flag verhinderte einen erneuten Aufruf nach
-        // `tccutil reset`, was zu „App ist nicht in der Liste"-Bugs führte.
-        if !AXIsProcessTrusted() {
-            let options = [kAXTrustedCheckOptionPrompt.takeRetainedValue() as String: true] as CFDictionary
-            _ = AXIsProcessTrustedWithOptions(options)
-        }
-
-        // Eingabeüberwachung: gleiche Idempotenz. IOHIDRequestAccess()
-        // registriert die App garantiert in der TCC-Datenbank — nach
-        // diesem Aufruf taucht ALVA-TEXT in den Systemeinstellungen ->
-        // Eingabeüberwachung mit Toggle auf, statt nur per „+" hinzufügbar.
-        if !pasteService.hasInputMonitoringPermission {
-            _ = pasteService.requestInputMonitoringPermission()
-        }
     }
 
     func openSettings(initialTab: String? = nil) {
+        // v2.1.4: Während Onboarding aktiv ist, KEIN zweites Settings-Window
+        // öffnen — sonst läuft der User zwischen zwei Fenstern hin und her.
+        // Stattdessen das Onboarding-Window in den Vordergrund holen.
+        if let onb = onboardingWindowController?.window, onb.isVisible {
+            print("ALVA: openSettings suppressed — onboarding active")
+            NSApp.activate(ignoringOtherApps: true)
+            onb.makeKeyAndOrderFront(nil)
+            onb.orderFrontRegardless()
+            return
+        }
+
         // Wenn ein Wunsch-Tab mitkommt (z.B. "account" beim Erstlauf),
         // jetzt vormerken — SettingsView liest das im onAppear/onChange.
         if let initialTab {
@@ -679,6 +782,17 @@ final class AppCoordinator: ObservableObject {
 
     func beginRecording(mode: HotkeyMode) {
         guard !isProcessing else { return }
+
+        // v2.1.4: License-Gate. Ohne aktive Lizenz darf der Aufnahme-Pfad
+        // gar nicht starten — sonst läuft die volle Funktionalität ohne
+        // Aktivierung. Im Fehlerfall öffnet sich automatisch der Account-Tab,
+        // damit der User den Onboarding-Schritt findet.
+        guard LicenseState.shared.phase.isUsable else {
+            print("ALVA: recording blocked — license not usable (phase=\(LicenseState.shared.phase))")
+            recordError("ALVA-TEXT ist noch nicht aktiviert. Bitte im Account-Tab den 6-stelligen Code eintragen.")
+            openSettings(initialTab: "account")
+            return
+        }
 
         // Snapshot the frontmost app BEFORE we start recording, so we know
         // where to paste once the transcript comes back. Skip our own app
@@ -993,6 +1107,16 @@ final class AppCoordinator: ObservableObject {
         pasteService.openAccessibilitySettings()
     }
 
+    /// v2.1.4: Cooldown für den TCC-Permission-Prompt.
+    /// macOS' AXIsProcessTrustedWithOptions(prompt:true) zeigt den
+    /// System-Dialog jedes Mal frisch an, wenn der Prozess sich noch als
+    /// untrusted sieht — auch wenn der User in den Systemeinstellungen
+    /// längst grünen Toggle gesetzt hat (TCC-Cache-Bug pro Prozess).
+    /// Ohne Cooldown bombt sich der User mit Klicks auf den Button selbst
+    /// mit Dialogen voll. 5 s Cooldown bricht die Schleife.
+    private var lastAccessibilityPromptAt: Date?
+    private static let accessibilityPromptCooldown: TimeInterval = 5.0
+
     /// Triggers the macOS system dialog that asks the user to enable
     /// Accessibility for ALVA-TEXT. Sets `awaitingPermissionGrant=true` —
     /// dadurch darf `refreshPermissionStates()` einen Auto-Restart triggern,
@@ -1001,6 +1125,14 @@ final class AppCoordinator: ObservableObject {
     /// the user clicks the "Erlaubnis anfordern" button.
     @discardableResult
     func requestAccessibilityPrompt() -> Bool {
+        // Cooldown-Check: Wenn der Prompt erst kürzlich angezeigt wurde,
+        // nicht erneut triggern — egal wie oft der User klickt.
+        if let last = lastAccessibilityPromptAt,
+           Date().timeIntervalSince(last) < AppCoordinator.accessibilityPromptCooldown {
+            print("ALVA: requestAccessibilityPrompt suppressed (cooldown)")
+            return AXIsProcessTrusted()
+        }
+        lastAccessibilityPromptAt = Date()
         awaitingPermissionGrant = true
         return pasteService.promptForAccessibility()
     }
@@ -1210,6 +1342,17 @@ extension AppCoordinator {
     /// and respects active recordings.
     func startReverseTranslate() {
         print("ALVA reverseTranslate: triggered (isProcessing=\(isProcessing) isReverse=\(isReverseTranslating) status=\(status.rawValue))")
+
+        // v2.1.4: License-Gate. Reverse-Translate ist Cloud-only und braucht
+        // eine aktive Lizenz, damit kein gratis-Konsum von Cloud-Funktionen
+        // möglich ist.
+        guard LicenseState.shared.phase.isUsable else {
+            print("ALVA reverseTranslate: blocked — license not usable")
+            recordError("ALVA-TEXT ist noch nicht aktiviert. Bitte im Account-Tab den 6-stelligen Code eintragen.")
+            openSettings(initialTab: "account")
+            return
+        }
+
         // Ignore during any other activity. We intentionally do NOT gate
         // on `status` here — the user might press the hotkey right after
         // a recording finished, when status is briefly .pasted / .copied /

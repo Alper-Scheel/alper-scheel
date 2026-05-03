@@ -40,21 +40,23 @@ def _resolve_status(device: Device) -> tuple[str, str, str]:
     """
     lic = device.license
     if lic is None:
-        return ("invalid", "limited", "No license record. Please re-activate.")
+        return ("invalid", "limited", "Keine Lizenz-Daten. Bitte erneut aktivieren.")
 
     if lic.status == "revoked":
-        return ("revoked", "limited", "This device has been revoked.")
+        return ("revoked", "limited", "Dieses Gerät wurde widerrufen.")
 
+    # v2.1.6: Wording-Cleanup. Im Free-Modus keine Beta-Sprache mehr,
+    # plus deutsche Strings im Client-Display (#B12).
     if settings.beta_mode_global:
-        return ("beta", "full", "Beta access active. Thanks for testing!")
+        return ("beta", "full", "Vollzugang aktiv. Danke für deine Unterstützung.")
 
     if lic.status == "active" and lic.tier == "paid":
-        return ("active", "paid", "Thank you for your purchase.")
+        return ("active", "paid", "Danke für deinen Kauf.")
 
     if lic.status == "trial" and lic.trial_expires_at and lic.trial_expires_at > _utcnow():
-        return ("trial", "full", "Trial active.")
+        return ("trial", "full", "Test-Zeitraum aktiv.")
 
-    return ("expired", "limited", "Trial expired. Please purchase to continue.")
+    return ("expired", "limited", "Test-Zeitraum abgelaufen. Zum Weiterarbeiten bitte aktivieren.")
 
 
 @router.post(

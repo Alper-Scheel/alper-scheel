@@ -33,7 +33,11 @@ final class LicenseState: ObservableObject {
             case .active(_, let tier, _):
                 return tier != .limited
             case .loading:
-                return true   // Optimistisch: nicht blocken, bevor der Check läuft
+                // v2.1.4: Sicherer Default — solange der Status noch nicht
+                // hydratisiert ist, blocken wir die kostenpflichtigen Pfade.
+                // Das verhindert ein Race-Window beim App-Start, in dem ein
+                // schnell gedrückter Hotkey ohne Aktivierungs-Check durchläuft.
+                return false
             default:
                 return false
             }

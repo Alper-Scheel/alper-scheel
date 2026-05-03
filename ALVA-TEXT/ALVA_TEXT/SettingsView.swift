@@ -52,6 +52,41 @@ struct SettingsView: View {
     }
 }
 
+// MARK: - API-Key-Validation Label (v2.1.6, #B14)
+
+@ViewBuilder
+private func apiKeyValidationLabel(for status: AppCoordinator.APIKeyValidation) -> some View {
+    switch status {
+    case .empty:
+        EmptyView()
+    case .checking:
+        Label("Schlüssel wird geprüft …", systemImage: "ellipsis.circle")
+            .foregroundStyle(.secondary)
+            .font(.caption)
+    case .valid:
+        Label("Schlüssel funktioniert — alle Cloud-Features freigeschaltet.",
+              systemImage: "checkmark.circle.fill")
+            .foregroundStyle(.green)
+            .font(.caption)
+    case .invalid(let detail):
+        Label(detail, systemImage: "exclamationmark.triangle.fill")
+            .foregroundStyle(.red)
+            .font(.caption)
+            .fixedSize(horizontal: false, vertical: true)
+    case .quotaExceeded:
+        Label("Account-Quota erreicht oder Rate-Limit. Auf platform.openai.com Guthaben/Limit prüfen.",
+              systemImage: "exclamationmark.circle")
+            .foregroundStyle(.orange)
+            .font(.caption)
+            .fixedSize(horizontal: false, vertical: true)
+    case .networkError:
+        Label("Schlüssel gespeichert. Validierung nicht möglich (Netzproblem).",
+              systemImage: "wifi.exclamationmark")
+            .foregroundStyle(.secondary)
+            .font(.caption)
+    }
+}
+
 // MARK: - Card Container
 
 private struct Card<Content: View>: View {
@@ -439,6 +474,10 @@ private struct TranscriptionBackendCard: View {
             Divider().padding(.vertical, 2)
 
             // Local model status row
+            // v2.1.6: Prüfen-Button entfernt (#B16) — bei grünem Haken
+            // war er funktional ohnehin redundant, und sein onTap-Handler
+            // hat keinen sichtbaren Effekt mehr. Status wird automatisch
+            // beim Settings-Öffnen aktualisiert.
             HStack(spacing: 10) {
                 Image(systemName: localStatusIcon(isAvailable: isLocalAvailable))
                     .font(.title3)
@@ -451,8 +490,6 @@ private struct TranscriptionBackendCard: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("Prüfen") { loadTick &+= 1 }
-                    .buttonStyle(.bordered)
             }
             .id(loadTick)
 
@@ -787,6 +824,11 @@ private struct SystemTab: View {
                      accent: .blue) {
                     SecureField("sk-… (leer lassen für reinen Lokalbetrieb)", text: $coordinator.apiKey)
                         .textFieldStyle(.roundedBorder)
+
+                    // v2.1.6: API-Key-Validierungs-Status (#B14) — sofortiges
+                    // Feedback ob der gespeicherte Key gültig ist.
+                    apiKeyValidationLabel(for: coordinator.apiKeyValidation)
+
                     Text("Ohne Schlüssel funktioniert der Standard-Modus (reines Transkript) vollständig lokal. Für Umformulierungen und Übersetzungen wird ein Schlüssel von platform.openai.com benötigt. Der Schlüssel wird lokal im macOS-Schlüsselbund gespeichert.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -1225,13 +1267,27 @@ struct ReverseTranslatePopup: View {
 
 struct OnboardingView: View {
     @EnvironmentObject var coordinator: AppCoordinator
+    @ObservedObject var license: LicenseState = .shared
     @State private var step: Int = 0
     @State private var accessibilityTick: Int = 0
     @State private var inputMonitoringTick: Int = 0
 
+    // v2.1.4: Aktivierung als Pflicht-Schritt 2 ins Onboarding integriert.
+    // Vorher lief sie als separates Sheet im Account-Tab — Folge: das Settings-
+    // Fenster sprang während der API-Eingabe auf, parallel öffneten sich noch
+    // TCC-Dialoge. Jetzt: ein Fenster, ein Schritt, eine Aktion.
+    @State private var activationEmail: String = ""
+    @State private var activationCode: String = ""
+    @State private var activationLocalStep: ActivationLocalStep = .email
+    @State private var activationBusy: Bool = false
+    @State private var activationError: String?
+    @State private var activationInfo: String?
+
+    private enum ActivationLocalStep { case email, code }
+
     let onFinish: () -> Void
 
-    private let totalSteps = 4
+    private let totalSteps = 5
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1253,9 +1309,10 @@ struct OnboardingView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     switch step {
                     case 0: welcomePage
-                    case 1: apiKeyPage
-                    case 2: accessibilityPage
-                    case 3: inputMonitoringPage
+                    case 1: activationPage
+                    case 2: apiKeyPage
+                    case 3: accessibilityPage
+                    case 4: inputMonitoringPage
                     default: EmptyView()
                     }
                 }
@@ -1289,11 +1346,191 @@ struct OnboardingView: View {
     }
 
     private var canAdvance: Bool {
-        // API-Key ist optional. Kein erzwungenes Blockieren mehr.
-        true
+        switch step {
+        case 1:
+            // Aktivierungs-Schritt: nur weitergehen, wenn die Lizenz aktiv ist.
+            // Damit ist die Aktivierung eine echte Pflicht-Hürde — ohne Code
+            // gibt es kein Weiterkommen ins restliche Onboarding.
+            if case .active = license.phase { return true }
+            return false
+        default:
+            return true
+        }
     }
 
     // Pages
+
+    // ── Schritt 2: Aktivierung ─────────────────────────────────────────
+    @ViewBuilder
+    private var activationPage: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Aktivierung")
+                .font(.title2)
+                .bold()
+            Text("ALVA-TEXT braucht eine einmalige Aktivierung mit deiner E-Mail-Adresse, um den vollen Funktionsumfang freizuschalten.")
+                .foregroundStyle(.secondary)
+
+            if case .active = license.phase {
+                // Bereits aktiviert — User kann direkt weiter.
+                HStack(spacing: 10) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .foregroundStyle(.green)
+                        .font(.title2)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Aktivierung abgeschlossen")
+                            .fontWeight(.semibold)
+                        if let mail = license.currentEmail {
+                            Text(mail)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .padding(.top, 4)
+                Text("Klick auf „Weiter\", um den OpenAI-Schlüssel zu hinterlegen oder zu überspringen.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 4)
+            } else {
+                switch activationLocalStep {
+                case .email:
+                    activationEmailStep
+                case .code:
+                    activationCodeStep
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var activationEmailStep: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("E-Mail-Adresse")
+                .font(.callout.weight(.medium))
+            TextField("du@beispiel.de", text: $activationEmail)
+                .textFieldStyle(.roundedBorder)
+                .textContentType(.emailAddress)
+                .disableAutocorrection(true)
+                .onSubmit { Task { await requestActivationCode() } }
+
+            HStack {
+                Button("Code an meine E-Mail senden") {
+                    Task { await requestActivationCode() }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!isValidActivationEmail || activationBusy)
+                if activationBusy {
+                    ProgressView().controlSize(.small).padding(.leading, 6)
+                }
+            }
+
+            if let err = activationError {
+                Label(err, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                    .font(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let info = activationInfo {
+                Label(info, systemImage: "info.circle")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+
+            Text("Es geht keine Aktivierung ohne gültigen Code aus deiner E-Mail. Damit stellen wir sicher, dass nur freigegebene Beta-Tester die Funktionen nutzen.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
+        }
+    }
+
+    @ViewBuilder
+    private var activationCodeStep: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("6-stelliger Code")
+                .font(.callout.weight(.medium))
+            Text("Eine E-Mail an **\(activationEmail)** mit deinem Code wurde gesendet. Gültig 15 Minuten.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            TextField("123456", text: $activationCode)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.title2, design: .monospaced))
+                .onChange(of: activationCode) { _, new in
+                    let digits = new.filter(\.isNumber).prefix(6)
+                    if String(digits) != new { activationCode = String(digits) }
+                    if activationCode.count == 6 { Task { await submitActivationCode() } }
+                }
+
+            HStack {
+                Button("Andere E-Mail") {
+                    activationLocalStep = .email
+                    activationError = nil
+                    activationInfo = nil
+                    activationCode = ""
+                }
+                .buttonStyle(.link)
+                Spacer()
+                Button("Erneut senden") {
+                    Task { await requestActivationCode() }
+                }
+                .disabled(activationBusy)
+                Button("Aktivieren") {
+                    Task { await submitActivationCode() }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(activationCode.count != 6 || activationBusy)
+                if activationBusy {
+                    ProgressView().controlSize(.small).padding(.leading, 6)
+                }
+            }
+
+            if let err = activationError {
+                Label(err, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                    .font(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let info = activationInfo {
+                Label(info, systemImage: "info.circle")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+        }
+    }
+
+    private var isValidActivationEmail: Bool {
+        let trimmed = activationEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.contains("@") && trimmed.contains(".") && trimmed.count >= 5
+    }
+
+    private func requestActivationCode() async {
+        activationError = nil
+        activationInfo = nil
+        activationBusy = true
+        defer { activationBusy = false }
+        do {
+            try await license.requestCode(for: activationEmail.trimmingCharacters(in: .whitespacesAndNewlines))
+            activationInfo = "Code gesendet. Schau in dein Postfach."
+            activationLocalStep = .code
+        } catch {
+            activationError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private func submitActivationCode() async {
+        activationError = nil
+        activationInfo = nil
+        activationBusy = true
+        defer { activationBusy = false }
+        do {
+            try await license.submitCode(email: activationEmail, code: activationCode)
+            // license.phase ist jetzt .active → "Weiter" wird automatisch enabled
+            activationInfo = "Aktivierung erfolgreich. Du kannst jetzt weitergehen."
+        } catch {
+            activationError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            activationCode = ""
+        }
+    }
 
     @ViewBuilder
     private var welcomePage: some View {
@@ -2084,10 +2321,62 @@ private struct AccountTab: View {
     }
 
     private var currentMessage: String? {
-        if case .active(_, _, let msg) = license.phase { return msg }
-        if case .expired(let msg) = license.phase { return msg }
-        if case .revoked(let msg) = license.phase { return msg }
-        return nil
+        // v2.1.6: Sanitizer für Server-Messages (#B12).
+        // Falls ein älterer Server-Build noch englische „Beta access active.
+        // Thanks for testing!"-Strings o.ä. liefert (oder ein neuer Server-
+        // Build versehentlich englisches Wording einführt), filtern wir das
+        // hier und ersetzen es durch eine generische deutsche Variante.
+        // Damit hat der Client einen lokalen Schutz, unabhängig von der
+        // Server-Deploy-Latenz.
+        let raw: String?
+        if case .active(_, _, let msg) = license.phase { raw = msg }
+        else if case .expired(let msg) = license.phase { raw = msg }
+        else if case .revoked(let msg) = license.phase { raw = msg }
+        else { raw = nil }
+
+        return Self.sanitizeServerMessage(raw, phase: license.phase)
+    }
+
+    /// Filtert bekannte englische / Beta-belastete Server-Messages und
+    /// ersetzt sie durch saubere deutsche Texte. Unbekannte Texte werden
+    /// unverändert durchgereicht (Backward-Kompat für zukünftige
+    /// Server-Erweiterungen).
+    private static func sanitizeServerMessage(_ msg: String?, phase: LicenseState.Phase) -> String? {
+        guard let raw = msg, !raw.isEmpty else { return nil }
+        let lower = raw.lowercased()
+
+        // Englische Default-Messages des Servers (zur Migrationsphase)
+        if lower.contains("beta access") || lower.contains("thanks for testing") {
+            return "Vollzugang aktiv."
+        }
+        if lower.contains("trial active") {
+            return "Test-Zeitraum aktiv."
+        }
+        if lower.contains("trial expired") {
+            return "Test-Zeitraum abgelaufen. Bitte aktivieren."
+        }
+        if lower.contains("device has been revoked") {
+            return "Dieses Gerät wurde widerrufen."
+        }
+        if lower.contains("no license record") || lower.contains("re-activate") {
+            return "Keine Lizenz-Daten — bitte erneut aktivieren."
+        }
+        if lower.contains("thank you for your purchase") {
+            return "Danke für deinen Kauf."
+        }
+
+        // Phase-spezifische Sanity: wenn das raw-msg „beta" enthält und der
+        // status auch „beta" ist, lieber generisch deutsch als irgendwas
+        // mit „Beta" durchzureichen.
+        if lower.contains("beta") {
+            if case .active = phase {
+                return "Vollzugang aktiv."
+            }
+        }
+
+        // Unbekannte Message — durchreichen, der Server hat möglicherweise
+        // schon einen sauberen deutschen String.
+        return raw
     }
 
     @ViewBuilder private func tierBadge(tier: LicenseState.Tier) -> some View {
@@ -2263,7 +2552,7 @@ private struct AccountStatusHeader: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Jetzt kostenlos aktivieren")
                     .font(.headline)
-                Text("Einmalig Ihre E-Mail hinterlegen. Kostenfrei in der Beta-Phase.")
+                Text("Einmalig Ihre E-Mail hinterlegen. Kostenfrei.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

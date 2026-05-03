@@ -38,6 +38,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // translate hotkey was user-configurable. Now fixed to ⌃⌥⌘L.
         AppCoordinator.migrateReverseTranslateDefaults()
 
+        // v2.1.6.1: Mac-Wake-Notification — re-hydratisiert User-Settings,
+        // falls macOS den App-Prozess während Sleep terminiert hat. Sonst
+        // sprang der Transkriptions-Modus nach Wake auf den Default zurück
+        // (#B-Wake).
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(handleMacDidWake(_:)),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
+
         // Warm-Up-Tap so früh wie möglich — VOR `coordinator.requestPermissions()`.
         // Registriert ALVA-TEXT in der TCC-Datenbank, sodass sie in
         // Systemeinstellungen → Eingabeüberwachung sofort mit Toggle
@@ -54,19 +65,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // den Launch nicht — Ergebnis landet via LicenseState in der UI.
         LicenseState.shared.start()
 
-        // First-run onboarding: a guided setup for API key, Accessibility
-        // and Input-Monitoring. Skipped if the user has seen it before.
-        // Can be re-launched from the status menu.
-        if coordinator.shouldShowOnboarding {
+        // v2.1.4: Linearer Onboarding-Flow.
+        //
+        // Onboarding zeigen, wenn:
+        //   (a) noch nie gezeigt (Erst-Start), ODER
+        //   (b) keine Aktivierung vorhanden — auch dann brauchen wir die
+        //       Aktivierungs-Page als Pflicht-Schritt, statt den User in
+        //       ein Settings-Fenster zu schicken (das parallel zum Onboarding
+        //       laufen und das ganze UI verwirren würde).
+        //
+        // Die Aktivierungs-Logik selbst lebt jetzt im Onboarding-Schritt 2.
+        // Der Account-Tab in den Settings bleibt für nachträglichen Logout
+        // / Re-Aktivierung erreichbar, aber wird nicht mehr automatisch beim
+        // App-Start geöffnet.
+        let needsOnboarding = coordinator.shouldShowOnboarding || !LicenseClient.isActivated
+        if needsOnboarding {
+            // Falls eine alte hasSeenOnboarding=true-Markierung gesetzt war
+            // aber die Aktivierung weg ist: Flag zurücksetzen, damit der
+            // User wieder durch das volle Onboarding läuft.
+            if !LicenseClient.isActivated {
+                coordinator.resetOnboarding()
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                 self?.coordinator.showOnboardingWindow()
-            }
-        } else if !LicenseClient.isActivated {
-            // Kein Onboarding mehr noetig, aber noch nicht aktiviert: direkt
-            // in die Settings und den Account-Tab aufrufen, damit der User
-            // nicht erst das Menu-Bar-Icon finden muss.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                self?.coordinator.openSettings(initialTab: "account")
             }
         }
 
@@ -157,6 +178,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             default:
                 break
             }
+        }
+    }
+
+    // MARK: - Mac Wake Handling (v2.1.6.1)
+
+    /// macOS sendet `NSWorkspace.didWakeNotification` an alle registrierten
+    /// Observer, sobald der Mac aus dem Sleep zurückkehrt. Wir nutzen das,
+    /// um sicherzustellen, dass User-Settings — speziell der vom User
+    /// gewählte Transkriptions-Modus — korrekt aus UserDefaults restauriert
+    /// werden. Vorher konnte es passieren, dass nach Wake der Modus auf
+    /// .local zurücksprang, weil der App-Prozess während Sleep terminiert
+    /// und neu gestartet wurde.
+    @objc private func handleMacDidWake(_ notification: Notification) {
+        print("ALVA: Mac did wake — re-hydrating user preferences")
+        Task { @MainActor in
+            coordinator.rehydrateUserPreferences()
         }
     }
 
