@@ -1,0 +1,1097 @@
+/* AdLuna — Landing Page Styles
+ * Seriös, konservativ, minimalistisch. Keine Spielereien.
+ * © AdSerica Ltd., operativ AdLuna GmbH.
+ */
+
+:root {
+    --bg: #F8F7F4;          /* warmes Elfenbein */
+    --bg-card: #FFFFFF;
+    --bg-subtle: #F1EFE9;
+    --text: #111111;
+    --text-muted: #5A5954;
+    --text-subtle: #8C8A83;
+    --border: #E8E6E0;
+    --border-strong: #D1CFC6;
+    --accent: #14284B;
+    --accent-hover: #0A1A3A;
+    --accent-subtle: #EEF0F5;
+
+    --font-serif: "Iowan Old Style", "Palatino Linotype", "Palatino", Georgia, serif;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif;
+    --font-mono: "SF Mono", "Menlo", "Consolas", monospace;
+
+    --max-content: 1080px;
+    --max-reading: 680px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.65;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ────────────────────────────────────────── Typography */
+
+h1, h2, h3, h4 {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: var(--text);
+}
+
+h1 {
+    font-size: clamp(2rem, 4.5vw, 3.25rem);
+    letter-spacing: -0.02em;
+    margin-bottom: 1.25rem;
+}
+
+h2 {
+    font-size: clamp(1.5rem, 3vw, 2.125rem);
+    margin-bottom: 1rem;
+    letter-spacing: -0.015em;
+}
+
+h3 {
+    font-size: clamp(1.15rem, 2vw, 1.375rem);
+    margin-bottom: 0.75rem;
+}
+
+p {
+    margin-bottom: 1rem;
+    color: var(--text);
+}
+
+p.lead {
+    font-size: 1.125rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+}
+
+a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 120ms ease, color 120ms ease;
+}
+
+a:hover {
+    color: var(--accent-hover);
+    border-bottom-color: var(--accent);
+}
+
+strong, b {
+    font-weight: 600;
+    color: var(--text);
+}
+
+em, i {
+    font-style: italic;
+}
+
+blockquote {
+    font-family: var(--font-serif);
+    font-size: 1.25rem;
+    line-height: 1.55;
+    font-style: italic;
+    color: var(--text);
+    padding: 0.25rem 0 0.25rem 1.5rem;
+    border-left: 2px solid var(--accent);
+    margin: 2rem 0;
+}
+
+/* ────────────────────────────────────────── Layout */
+
+.container {
+    max-width: var(--max-content);
+    margin: 0 auto;
+    padding: 0 1.5rem;
+}
+
+.container-reading {
+    max-width: var(--max-reading);
+    margin: 0 auto;
+    padding: 0 1.5rem;
+}
+
+section {
+    padding: 5rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+section:last-of-type {
+    border-bottom: none;
+}
+
+section.subtle {
+    background: var(--bg-subtle);
+}
+
+.section-eyebrow {
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-subtle);
+    margin-bottom: 1rem;
+    font-weight: 500;
+}
+
+/* ────────────────────────────────────────── Navigation */
+
+.nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(248, 247, 244, 0.88);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    border-bottom: 1px solid var(--border);
+}
+
+.nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    max-width: var(--max-content);
+    margin: 0 auto;
+}
+
+.nav-brand {
+    font-family: var(--font-serif);
+    font-size: 1.25rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: var(--text);
+    border: none;
+}
+
+.nav-brand:hover {
+    border: none;
+    color: var(--accent);
+}
+
+.nav-links {
+    display: flex;
+    gap: 2rem;
+    list-style: none;
+    align-items: center;
+}
+
+.nav-links a {
+    font-size: 0.9375rem;
+    color: var(--text-muted);
+    border: none;
+}
+
+.nav-links a:hover {
+    color: var(--text);
+    border: none;
+}
+
+/* ────────────────────────────────────────── Hero */
+
+.hero {
+    padding: 7rem 0 6rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.hero h1 {
+    font-size: clamp(2.25rem, 5vw, 3.75rem);
+    font-weight: 500;
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+    max-width: 18ch;
+    margin-bottom: 1.75rem;
+}
+
+.hero .subhead {
+    font-family: var(--font-sans);
+    font-size: clamp(1.0625rem, 1.6vw, 1.25rem);
+    line-height: 1.55;
+    color: var(--text-muted);
+    max-width: 52ch;
+    margin-bottom: 2.5rem;
+    font-weight: 400;
+}
+
+.hero-actions {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+/* ────────────────────────────────────────── Buttons */
+
+.btn {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    line-height: 1.3;
+    border-radius: 2px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: #FFFFFF;
+    border-color: var(--accent);
+}
+
+.btn-primary:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+    color: #FFFFFF;
+}
+
+.btn-secondary {
+    background: transparent;
+    color: var(--accent);
+    border-color: var(--border-strong);
+}
+
+.btn-secondary:hover {
+    background: var(--bg-card);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* ────────────────────────────────────────── Pillars (vier Säulen) */
+
+.pillars {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 2rem;
+    margin-top: 3rem;
+}
+
+.pillar {
+    padding: 0;
+}
+
+.pillar-label {
+    display: block;
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-subtle);
+    margin-bottom: 0.75rem;
+    font-weight: 500;
+}
+
+.pillar h3 {
+    font-family: var(--font-serif);
+    margin-bottom: 0.75rem;
+    font-size: 1.25rem;
+}
+
+.pillar p {
+    font-size: 0.9375rem;
+    color: var(--text-muted);
+    line-height: 1.55;
+    margin-bottom: 0;
+}
+
+/* ────────────────────────────────────────── Product Family */
+
+.products {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2.5rem;
+}
+
+.product-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    transition: border-color 180ms ease, transform 180ms ease;
+}
+
+.product-card:hover {
+    border-color: var(--border-strong);
+}
+
+.product-status {
+    display: inline-block;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 500;
+    padding: 0.25rem 0.625rem;
+    border-radius: 2px;
+    margin-bottom: 1rem;
+    align-self: flex-start;
+}
+
+.product-status.available {
+    background: #E8F0E4;
+    color: #2F5E2C;
+}
+
+.product-status.beta {
+    background: #F0EAD8;
+    color: #6B5917;
+}
+
+.product-status.soon {
+    background: var(--bg-subtle);
+    color: var(--text-muted);
+}
+
+.product-card h3 {
+    font-family: var(--font-serif);
+    font-size: 1.375rem;
+    margin-bottom: 0.5rem;
+}
+
+.product-card p {
+    font-size: 0.9375rem;
+    color: var(--text-muted);
+    line-height: 1.55;
+    flex-grow: 1;
+    margin-bottom: 1.5rem;
+}
+
+.product-link {
+    font-size: 0.9375rem;
+    color: var(--accent);
+    font-weight: 500;
+    border: none;
+}
+
+.product-link:hover {
+    color: var(--accent-hover);
+    border: none;
+}
+
+.product-link::after {
+    content: " →";
+    transition: margin-left 120ms ease;
+}
+
+.product-link:hover::after {
+    margin-left: 2px;
+}
+
+/* ────────────────────────────────────────── Manifest section (kurz) */
+
+.manifest-preview {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 3rem;
+}
+
+.manifest-preview blockquote {
+    border: none;
+    padding: 0;
+    margin: 0 0 1.5rem 0;
+    font-size: 1.25rem;
+    line-height: 1.55;
+    color: var(--text);
+    font-style: normal;
+}
+
+.manifest-preview p {
+    color: var(--text-muted);
+    font-size: 1rem;
+    max-width: 60ch;
+}
+
+/* ────────────────────────────────────────── Contact */
+
+.contact {
+    max-width: 680px;
+    margin: 0 auto;
+}
+
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-subtle);
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    color: var(--text);
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    border-radius: 2px;
+    transition: border-color 120ms ease;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.form-group textarea {
+    min-height: 160px;
+    resize: vertical;
+    line-height: 1.5;
+}
+
+.form-note {
+    font-size: 0.8125rem;
+    color: var(--text-subtle);
+    margin-top: 0.5rem;
+}
+
+/* ────────────────────────────────────────── Footer */
+
+.footer {
+    background: var(--bg-subtle);
+    border-top: 1px solid var(--border);
+    padding: 3rem 0 2rem;
+    margin-top: auto;
+}
+
+.footer-cols {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 2.5rem;
+}
+
+.footer-col h4 {
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 500;
+    color: var(--text-subtle);
+    margin-bottom: 1rem;
+}
+
+.footer-col ul {
+    list-style: none;
+}
+
+.footer-col li {
+    margin-bottom: 0.5rem;
+    font-size: 0.9375rem;
+}
+
+.footer-col a {
+    color: var(--text-muted);
+    border: none;
+}
+
+.footer-col a:hover {
+    color: var(--text);
+    border: none;
+}
+
+.footer-brand {
+    font-family: var(--font-serif);
+    font-size: 1.125rem;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+}
+
+.footer-tagline {
+    font-size: 0.9375rem;
+    color: var(--text-muted);
+    max-width: 36ch;
+    line-height: 1.55;
+}
+
+.footer-bottom {
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.8125rem;
+    color: var(--text-subtle);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+/* ────────────────────────────────────────── Responsive */
+
+@media (max-width: 768px) {
+    .nav-links { gap: 1.25rem; }
+    .nav-links a:not(.nav-links a:last-child) { display: none; }
+    .hero { padding: 4rem 0 3rem; }
+    section { padding: 3.5rem 0; }
+    .footer-cols { grid-template-columns: 1fr 1fr; }
+    .manifest-preview { padding: 2rem 1.5rem; }
+    .product-card { padding: 1.5rem; }
+}
+
+@media (max-width: 480px) {
+    .footer-cols { grid-template-columns: 1fr; }
+    .footer-bottom { flex-direction: column; align-items: flex-start; }
+    .hero-actions { flex-direction: column; align-items: stretch; }
+    .hero-actions .btn { text-align: center; }
+}
+
+/* ────────────────────────────────────────── Utility */
+
+.only-mobile { display: none; }
+.only-desktop { display: block; }
+
+@media (max-width: 768px) {
+    .only-mobile { display: block; }
+    .only-desktop { display: none; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   v2.1 (Sonntag, 26.04.2026) — Dunkle Sektion-Variante + Universum-Slider
+   ────────────────────────────────────────────────────────────────────────────
+   ADDITIVE Erweiterung. Bestehende Sektionen bleiben unverändert (warm-cream).
+   Neue Sektionen können opt-in mit class="section-luna" dunkel gerendert
+   werden — Hero, AdLuna-Universum-Slider, Voice-Pack-Lead-Magnet usw.
+   Zentrale Akzentfarbe der dunklen Variante: Mond-Gold #D4A958 (gedämpft,
+   warm, passt zum AdLuna-Naming).
+   ════════════════════════════════════════════════════════════════════════════ */
+
+:root {
+    /* Dunkle Sektion (Hero, Universum, Voices) */
+    --luna-bg:           #0F1623;  /* tiefes Navy, fast schwarzblau */
+    --luna-bg-soft:      #161E30;  /* Karten/Cards in dunklen Sektionen */
+    --luna-bg-elevated:  #1E2738;  /* Hover-/Highlight-Layer */
+    --luna-border:       #2A3142;
+    --luna-text:         #F1EEE6;  /* warm-elfenbein, nicht reines Weiß */
+    --luna-text-muted:   #A6A599;
+    --luna-text-subtle:  #6E6D62;
+
+    /* Mond-Gold-Akzent (Buttons, Hover, Universum-Glow) */
+    --luna-gold:         #D4A958;
+    --luna-gold-hover:   #E5BB6B;
+    --luna-gold-soft:    rgba(212, 169, 88, 0.18);
+    --luna-gold-line:    rgba(212, 169, 88, 0.35);
+
+    /* Sekundär-Akzent (Lokal-/Erfolg-Indikator, Türkis-Ton) */
+    --luna-teal:         #5BA8A0;
+    --luna-teal-soft:    rgba(91, 168, 160, 0.16);
+}
+
+/* ── Section-Modifier ──────────────────────────────────────────────────── */
+
+section.section-luna,
+.section-luna {
+    background: var(--luna-bg);
+    color: var(--luna-text);
+    position: relative;
+    overflow: hidden;
+}
+
+.section-luna h1,
+.section-luna h2,
+.section-luna h3,
+.section-luna h4 {
+    color: var(--luna-text);
+}
+
+.section-luna p,
+.section-luna li {
+    color: var(--luna-text-muted);
+}
+
+.section-luna .section-eyebrow {
+    color: var(--luna-gold);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-size: 0.78rem;
+    font-weight: 500;
+}
+
+.section-luna a {
+    color: var(--luna-gold);
+    text-decoration: none;
+    border-bottom: 1px solid var(--luna-gold-line);
+    transition: color 120ms ease, border-color 120ms ease;
+}
+
+.section-luna a:hover {
+    color: var(--luna-gold-hover);
+    border-bottom-color: var(--luna-gold-hover);
+}
+
+/* Buttons in dunklen Sektionen */
+.section-luna .btn-primary {
+    background: var(--luna-gold);
+    color: var(--luna-bg);
+    border-color: var(--luna-gold);
+    border-radius: 4px;
+    padding: 0.85rem 1.5rem;
+    font-weight: 500;
+}
+
+.section-luna .btn-primary:hover {
+    background: var(--luna-gold-hover);
+    border-color: var(--luna-gold-hover);
+}
+
+.section-luna .btn-secondary {
+    background: transparent;
+    color: var(--luna-text);
+    border: 1px solid var(--luna-border);
+    border-radius: 4px;
+    padding: 0.85rem 1.5rem;
+}
+
+.section-luna .btn-secondary:hover {
+    background: var(--luna-bg-soft);
+    border-color: var(--luna-gold-line);
+}
+
+/* Subtile Stern-/Partikel-Andeutung im dunklen Hintergrund */
+.section-luna.luna-stars::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+        radial-gradient(1px 1px at 20% 30%, var(--luna-gold-soft) 50%, transparent 51%),
+        radial-gradient(1px 1px at 70% 60%, var(--luna-gold-soft) 50%, transparent 51%),
+        radial-gradient(1px 1px at 40% 80%, var(--luna-text-subtle) 50%, transparent 51%),
+        radial-gradient(1px 1px at 85% 20%, var(--luna-text-subtle) 50%, transparent 51%),
+        radial-gradient(1px 1px at 55% 45%, var(--luna-gold-soft) 50%, transparent 51%);
+    background-size: 800px 600px;
+    background-repeat: repeat;
+    opacity: 0.55;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.section-luna .container,
+.section-luna .container-reading {
+    position: relative;
+    z-index: 1;
+}
+
+/* ── Hero-Slider (5 Bewegungen) — Two-Column, Mond-Kreis-Schmuck ──────── */
+
+.hero-slider {
+    min-height: 86vh;
+    display: flex;
+    align-items: center;
+    padding: 5rem 0 6rem;
+    position: relative;
+    isolation: isolate;
+}
+
+/* Großer, sehr sanfter Mond-Kreis als Hintergrund-Schmuck.
+   Sitzt rechts, leicht angeschnitten, dezent leuchtend.
+   Wird vom Solar-System-Block visuell aufgegriffen. */
+.hero-slider::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: 50%;
+    right: -180px;
+    transform: translateY(-50%);
+    width: 720px;
+    height: 720px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%,
+                                rgba(212, 169, 88, 0.20) 0%,
+                                rgba(212, 169, 88, 0.08) 30%,
+                                rgba(212, 169, 88, 0.02) 55%,
+                                transparent 70%);
+    filter: blur(2px);
+    pointer-events: none;
+}
+
+.hero-slider .swiper {
+    width: 100%;
+    max-width: var(--max-content);
+    margin: 0 auto;
+    padding: 0 1.5rem;
+    overflow: visible;  /* damit Pagination außerhalb sichtbar bleibt */
+}
+
+.hero-slider .swiper-slide {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.85fr);
+    column-gap: 4rem;
+    align-items: center;
+    min-height: 60vh;
+}
+
+.hero-slider .slide-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: 580px;
+}
+
+.hero-slider .slide-visual {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    max-width: 360px;
+    justify-self: center;
+}
+
+/* Visual-Wrapper: dezenter Glow-Ring, dann Image/Symbol darin.
+   Funktioniert auch ohne Image (Fallback: nur Mond-Kreis als Symbol). */
+.hero-slider .slide-visual::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%,
+                                var(--luna-gold-soft) 0%,
+                                rgba(212, 169, 88, 0.04) 60%,
+                                transparent 80%);
+    filter: blur(1px);
+}
+
+.hero-slider .slide-visual img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 1px solid var(--luna-gold-line);
+    opacity: 0.92;
+}
+
+.hero-slider .swiper-slide .section-eyebrow {
+    color: var(--luna-gold);
+    font-size: 0.78rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+
+.hero-slider .swiper-slide h1 {
+    font-size: clamp(1.65rem, 2.8vw, 2.5rem);
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+    color: var(--luna-text);
+    margin: 0;
+    font-weight: 500;
+}
+
+.hero-slider .swiper-slide .subhead {
+    font-size: clamp(0.98rem, 1.15vw, 1.075rem);
+    line-height: 1.55;
+    color: var(--luna-text-muted);
+    max-width: 520px;
+    margin: 0;
+}
+
+.hero-slider .hero-actions {
+    margin-top: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+}
+
+/* Slider-Pagination — eleganter Mond-Gold-Stil, unten zentriert */
+.hero-slider .swiper-pagination {
+    position: absolute;
+    bottom: -2.5rem;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.hero-slider .swiper-pagination-bullet {
+    background: var(--luna-text-subtle);
+    opacity: 0.4;
+    width: 8px;
+    height: 8px;
+    margin: 0 !important;
+    transition: width 240ms ease, opacity 240ms ease, background 240ms ease;
+    border-radius: 4px;
+}
+
+.hero-slider .swiper-pagination-bullet-active {
+    background: var(--luna-gold);
+    opacity: 1;
+    width: 32px;
+}
+
+/* Optional: Pfeil-Navigation unten rechts (Swiper-Standard, gold-getönt) */
+.hero-slider .swiper-button-next,
+.hero-slider .swiper-button-prev {
+    color: var(--luna-gold);
+    width: 36px;
+    height: 36px;
+    background: var(--luna-bg-soft);
+    border: 1px solid var(--luna-border);
+    border-radius: 50%;
+    transition: background 180ms ease, border-color 180ms ease;
+}
+
+.hero-slider .swiper-button-next:hover,
+.hero-slider .swiper-button-prev:hover {
+    background: var(--luna-bg-elevated);
+    border-color: var(--luna-gold-line);
+}
+
+.hero-slider .swiper-button-next::after,
+.hero-slider .swiper-button-prev::after {
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+/* Mobile: einspaltig, Visual klein nach oben */
+@media (max-width: 900px) {
+    .hero-slider .swiper-slide {
+        grid-template-columns: 1fr;
+        row-gap: 1.75rem;
+    }
+    .hero-slider .slide-visual {
+        max-width: 220px;
+        order: -1;
+    }
+    .hero-slider .swiper-button-next,
+    .hero-slider .swiper-button-prev { display: none; }
+}
+
+/* ── AdLuna-Universum-Slider (Solar-System-Block) ─────────────────────── */
+
+.universe-slider {
+    padding: 6rem 0;
+    text-align: center;
+}
+
+.universe-stage {
+    position: relative;
+    height: 480px;
+    max-width: 960px;
+    margin: 3rem auto 0;
+}
+
+/* Sonne (Zentrum: AdLuna-Logo) */
+.universe-sun {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%,
+                                var(--luna-gold-hover) 0%,
+                                var(--luna-gold) 45%,
+                                #8C6A2A 100%);
+    box-shadow: 0 0 40px var(--luna-gold-soft),
+                0 0 80px var(--luna-gold-soft),
+                inset -10px -10px 25px rgba(0,0,0,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--luna-bg);
+    font-family: var(--font-serif);
+    font-size: 1.1rem;
+    font-weight: 500;
+    z-index: 2;
+}
+
+/* Orbits (Bahnen) — pure CSS, leichtgewichtig */
+.universe-orbit {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    border-radius: 50%;
+    border: 1px dashed var(--luna-gold-line);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.universe-orbit-1 { width: 320px; height: 320px; }
+.universe-orbit-2 { width: 480px; height: 480px; }
+.universe-orbit-3 { width: 640px; height: 640px; }
+
+/* Planeten (Produkte) — werden bei Klick aktiviert; Animation kommt mit JS */
+.universe-planet {
+    position: absolute;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--luna-bg-soft);
+    border: 2px solid var(--luna-gold);
+    cursor: pointer;
+    transition: transform 240ms ease, box-shadow 240ms ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--luna-text);
+    font-size: 0.78rem;
+    font-weight: 500;
+    text-align: center;
+    z-index: 2;
+}
+
+.universe-planet:hover,
+.universe-planet.is-active {
+    transform: scale(1.15);
+    box-shadow: 0 0 30px var(--luna-gold-soft);
+    background: var(--luna-bg-elevated);
+}
+
+/* Detail-Panel rechts vom Universum (erscheint bei Klick auf Planet) */
+.universe-detail {
+    margin-top: 3rem;
+    max-width: 640px;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: left;
+    padding: 2rem;
+    background: var(--luna-bg-soft);
+    border: 1px solid var(--luna-border);
+    border-radius: 6px;
+    min-height: 200px;
+}
+
+.universe-detail .eyebrow {
+    color: var(--luna-gold);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-size: 0.78rem;
+    margin-bottom: 0.5rem;
+}
+
+/* ── Cloud-Abgrenzung-Tabelle ──────────────────────────────────────────── */
+
+.compare-table {
+    width: 100%;
+    max-width: 720px;
+    margin: 2.5rem auto 0;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+}
+
+.compare-table th,
+.compare-table td {
+    padding: 1rem 1.25rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+}
+
+.compare-table thead th {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    font-size: 1.05rem;
+    color: var(--text);
+    border-bottom: 2px solid var(--accent);
+}
+
+.compare-table tbody tr td:first-child {
+    font-weight: 500;
+    color: var(--text-muted);
+    width: 30%;
+}
+
+/* ── Voice-Pack-Lead-Magnet-Section ────────────────────────────────────── */
+
+.voicepack-card {
+    max-width: 720px;
+    margin: 2.5rem auto 0;
+    padding: 2.5rem;
+    background: var(--luna-bg-soft);
+    border: 1px solid var(--luna-border);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.voicepack-card h3 {
+    color: var(--luna-text);
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.voicepack-card .voicepack-form {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    max-width: 420px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.voicepack-card input[type="email"] {
+    padding: 0.85rem 1rem;
+    font-size: 1rem;
+    background: var(--luna-bg);
+    border: 1px solid var(--luna-border);
+    border-radius: 4px;
+    color: var(--luna-text);
+    font-family: var(--font-sans);
+}
+
+.voicepack-card input[type="email"]:focus {
+    outline: none;
+    border-color: var(--luna-gold);
+}
+
+.voicepack-card label.opt-in {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    text-align: left;
+    font-size: 0.85rem;
+    color: var(--luna-text-muted);
+    line-height: 1.4;
+}
+
+/* ── Mobile-Anpassungen für die neuen Sektionen ───────────────────────── */
+
+@media (max-width: 768px) {
+    .universe-stage { height: 360px; }
+    .universe-sun { width: 100px; height: 100px; font-size: 0.95rem; }
+    .universe-orbit-1 { width: 240px; height: 240px; }
+    .universe-orbit-2 { width: 320px; height: 320px; display: none; }
+    .universe-orbit-3 { display: none; }
+    .universe-planet { width: 48px; height: 48px; font-size: 0.7rem; }
+    .compare-table { font-size: 0.85rem; }
+    .compare-table th,
+    .compare-table td { padding: 0.75rem 0.6rem; }
+    .voicepack-card { padding: 1.5rem; }
+    .hero-slider { min-height: 75vh; padding: 4rem 0 4.5rem; }
+}
