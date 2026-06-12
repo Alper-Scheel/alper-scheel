@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "adluna-platform-api",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-06-01",
+  "routes": [
+    {
+      "pattern": "api.adluna.de/*",
+      "zone_name": "adluna.de"
+    }
+  ],
+  "vars": {
+    "RESEND_FROM_EMAIL": "no-reply@mail.adluna.de",
+    "RESEND_FROM_NAME": "AdLuna Platform",
+    "ACTIVATION_CODE_TTL_MINUTES": "15",
+    "LICENSE_CHECK_TTL_SECONDS": "86400"
+  }
+}
